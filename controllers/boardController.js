@@ -27,25 +27,56 @@ export const newGame = () => {
 };
 
 // check whether the board is valid
-const validate = (board) => true;
+const validateSide = (arr, board) => {
+  for (let y = 0; y < 5; y += 1) {
+    for (let x = 0; x < 5; x += 1) {
+      // the position is not in a camp
+      if (!board.camps.includes([y, x])) {
+        // validate piece placement
+        if (arr[y][x] == null) {
+          return false;
+        }
+        // validate landmine placement
+        if ((arr[y] !== 4 || arr[y] !== 5) && arr[y][x].name === 'landmine') {
+          return false;
+        }
+        // validate bomb placement
+        if (arr[y] === 0 && arr[y][x].name === 'bomb') {
+          return false;
+        }
+        // validate flag placement
+        if (arr[5][1].name !== 'flag' && arr[5][3].name !== 'flag') {
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+};
 
 // take two arrays provided by players and return a board
 const placePieces = (arr1, arr2) => {
   const mountainRow = [null, 'mountain', null, 'mountain', null];
-  const board = arr1 + mountainRow + arr2;
-  if (!validate(board)) {
-    return false;
-  }
+  const board = arr1.reverse() + mountainRow + arr2;
   return board;
 };
 
 // process one player's placement of pieces, return board if complete, else null
 export const processPlayerPlacement = (board, arr, player) => {
   let startingBoard = null;
-  if (player === 1) {
-    board.playerOnePositions = arr;
-  } else if (player === 2) {
-    board.playerTwoPositions = arr;
+  if (!validateSide(arr)) {
+    return null;
+  }
+  if (validateSide(arr, board)) {
+    if (player === 1) {
+      board.playerOnePositions = arr;
+    } else if (player === 2) {
+      board.playerTwoPositions = arr;
+    }
+  } else {
+    // invalid piece placement
+    return null;
   }
 
   if (board.playerOnePositions.length > 0 && board.playerTwoPositions.length > 0) {
