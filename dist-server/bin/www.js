@@ -31,10 +31,27 @@ _app["default"].set('port', port);
 
 
 var server = _http["default"].createServer(_app["default"]);
+
+var options = {
+  maxHttpBufferSize: 1e8,
+  cors: {
+    origin: 'http://localhost:3001',
+    methods: ['GET', 'POST']
+  }
+};
+
+var io = require('socket.io')(server, options);
+
+io.on('connection', function (socket) {
+  console.log(socket.id);
+  socket.on('message', function (message) {
+    console.log("Received message => ".concat(message, "\n    "));
+  });
+  socket.send('Received!');
+});
 /**
  * Listen on provided port, on all network interfaces.
  */
-
 
 server.listen(port);
 server.on('error', onError);
