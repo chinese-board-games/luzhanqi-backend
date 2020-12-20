@@ -24,6 +24,23 @@ app.set('port', port);
  */
 
 const server = http.createServer(app);
+const options = {
+  maxHttpBufferSize: 1e8,
+  cors: {
+    origin: 'http://localhost:3001',
+    methods: ['GET', 'POST'],
+  },
+};
+const io = require('socket.io')(server, options);
+
+io.on('connection', (socket) => {
+  console.log(socket.id);
+  socket.on('message', (message) => {
+    console.log(`Received message => ${message}
+    `);
+  });
+  socket.send('Received!');
+});
 
 /**
  * Listen on provided port, on all network interfaces.
