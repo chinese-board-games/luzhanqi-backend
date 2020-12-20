@@ -3,7 +3,7 @@ import { createClient } from 'graphql-ws';
 const { expect } = require('chai');
 
 const client = createClient({
-  url: 'wss://welcomer.com/graphql',
+  url: 'wss://localhost:4000/graphql',
 });
 
 // query

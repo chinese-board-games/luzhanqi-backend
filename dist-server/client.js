@@ -10,7 +10,7 @@ var _require = require('chai'),
     expect = _require.expect;
 
 var client = (0, _graphqlWs.createClient)({
-  url: 'wss://welcomer.com/graphql'
+  url: 'wss://localhost:4000/graphql'
 }); // query
 
 _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee() {
