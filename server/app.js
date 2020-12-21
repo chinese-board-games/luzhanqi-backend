@@ -8,7 +8,6 @@ import dotenv from 'dotenv';
 import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 
-require('babel-core/register');
 require('babel-polyfill');
 
 dotenv.config();

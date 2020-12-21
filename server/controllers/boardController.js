@@ -3,7 +3,7 @@ import Board from '../models/Board';
 import sampleBoard from './sampleBoard';
 
 // the player will call this to start a new game
-export const newGame = () => {
+export const generateEmptyBoard = () => {
   const board = new Board();
 
   // initialize camp locations
@@ -26,6 +26,7 @@ export const newGame = () => {
   // initialize empty player positions
   board.playerOnePositions = [];
   board.playerTwoPositionsy = [];
+  return board;
 };
 
 // check whether the board is valid
@@ -60,8 +61,8 @@ const validateSide = (arr, board) => {
 // take two arrays provided by players and return a board
 const placePieces = (arr1, arr2) => {
   const mountainRow = [null, 'mountain', null, 'mountain', null];
-  const board = arr1.reverse() + mountainRow + arr2;
-  return board;
+  const boardArr = arr1.reverse() + mountainRow + arr2;
+  return boardArr;
 };
 
 // process one player's placement of pieces, return board if complete, else null
@@ -94,4 +95,4 @@ const isCamp = (board, y, x) => board.camps.includes([y, x]);
 // TODO: returns the victor, null if neither
 const winner = (board) => null;
 
-console.log(validateSide(sampleBoard));
+// console.log(validateSide(sampleBoard));

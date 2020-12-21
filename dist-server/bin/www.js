@@ -15,6 +15,8 @@ var _http = _interopRequireDefault(require("http"));
 
 var _app = _interopRequireDefault(require("../app"));
 
+var _lzqgame = _interopRequireDefault(require("../lzqgame"));
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
 var debug = (0, _debug["default"])('your-project-name:server');
@@ -35,19 +37,26 @@ var server = _http["default"].createServer(_app["default"]);
 var options = {
   maxHttpBufferSize: 1e8,
   cors: {
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST']
   }
 };
 
-var io = require('socket.io')(server, options);
+var io = require('socket.io')(server, options); // io.on('connection', (socket) => {
+//   console.log(socket.id);
+//   socket.on('message', (message) => {
+//     console.log(`Received message => ${message}
+//     `);
+//   });
+//   socket.send('Received!');
+// });
+// eslint-disable-next-line prefer-arrow-callback
 
-io.on('connection', function (socket) {
-  console.log(socket.id);
-  socket.on('message', function (message) {
-    console.log("Received message => ".concat(message, "\n    "));
-  });
-  socket.send('Received!');
+
+io.sockets.on('connection', function (socket) {
+  console.log('client connected');
+
+  _lzqgame["default"].initGame(io, socket);
 });
 /**
  * Listen on provided port, on all network interfaces.
@@ -110,5 +119,6 @@ function onError(error) {
 function onListening() {
   var addr = server.address();
   var bind = typeof addr === 'string' ? "pipe ".concat(addr) : "port ".concat(addr.port);
+  console.log("Listening on ".concat(bind));
   debug("Listening on ".concat(bind));
 }
