@@ -9,6 +9,7 @@
 import debugLib from 'debug';
 import http from 'http';
 import app from '../app';
+import lqz from '../lzqgame';
 
 const debug = debugLib('your-project-name:server');
 
@@ -27,19 +28,25 @@ const server = http.createServer(app);
 const options = {
   maxHttpBufferSize: 1e8,
   cors: {
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST'],
   },
 };
 const io = require('socket.io')(server, options);
 
-io.on('connection', (socket) => {
-  console.log(socket.id);
-  socket.on('message', (message) => {
-    console.log(`Received message => ${message}
-    `);
-  });
-  socket.send('Received!');
+// io.on('connection', (socket) => {
+//   console.log(socket.id);
+//   socket.on('message', (message) => {
+//     console.log(`Received message => ${message}
+//     `);
+//   });
+//   socket.send('Received!');
+// });
+
+// eslint-disable-next-line prefer-arrow-callback
+io.sockets.on('connection', function (socket) {
+  console.log('client connected');
+  lqz.initGame(io, socket);
 });
 
 /**
@@ -107,5 +114,6 @@ function onListening() {
   const bind = typeof addr === 'string'
     ? `pipe ${addr}`
     : `port ${addr.port}`;
+  console.log(`Listening on ${bind}`);
   debug(`Listening on ${bind}`);
 }

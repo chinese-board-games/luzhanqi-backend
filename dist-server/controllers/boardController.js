@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.processPlayerPlacement = exports.newGame = void 0;
+exports.processPlayerPlacement = exports.generateEmptyBoard = void 0;
 
 var _graphql = require("graphql");
 
@@ -14,7 +14,7 @@ var _sampleBoard = _interopRequireDefault(require("./sampleBoard"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
 // the player will call this to start a new game
-var newGame = function newGame() {
+var generateEmptyBoard = function generateEmptyBoard() {
   var board = new _Board["default"](); // initialize camp locations
 
   board.camps = [[2, 1], [2, 3], [4, 1], [4, 3], [8, 1], [8, 3], [10, 1], [10, 3], [3, 2], [9, 2]]; // initialize rail tiles
@@ -33,10 +33,11 @@ var newGame = function newGame() {
 
   board.playerOnePositions = [];
   board.playerTwoPositionsy = [];
+  return board;
 }; // check whether the board is valid
 
 
-exports.newGame = newGame;
+exports.generateEmptyBoard = generateEmptyBoard;
 
 var validateSide = function validateSide(arr, board) {
   for (var y = 0; y < 5; y += 1) {
@@ -72,8 +73,8 @@ var validateSide = function validateSide(arr, board) {
 
 var placePieces = function placePieces(arr1, arr2) {
   var mountainRow = [null, 'mountain', null, 'mountain', null];
-  var board = arr1.reverse() + mountainRow + arr2;
-  return board;
+  var boardArr = arr1.reverse() + mountainRow + arr2;
+  return boardArr;
 }; // process one player's placement of pieces, return board if complete, else null
 
 
@@ -115,6 +116,4 @@ var isCamp = function isCamp(board, y, x) {
 
 var winner = function winner(board) {
   return null;
-};
-
-console.log(validateSide(_sampleBoard["default"]));
+}; // console.log(validateSide(sampleBoard));

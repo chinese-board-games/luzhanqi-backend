@@ -41,8 +41,6 @@ _AsyncGenerator.prototype["return"] = function (arg) { return this._invoke("retu
 
 function _AwaitValue(value) { this.wrapped = value; }
 
-require('babel-core/register');
-
 require('babel-polyfill');
 
 _dotenv["default"].config(); // Construct a schema, using GraphQL schema language
