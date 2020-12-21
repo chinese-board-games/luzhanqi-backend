@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+/* eslint-disable no-console */
+
+/* eslint-disable func-names */
+
 /* eslint-disable no-shadow */
 
 /* eslint-disable no-use-before-define */
@@ -12,6 +16,8 @@
 var _debug = _interopRequireDefault(require("debug"));
 
 var _http = _interopRequireDefault(require("http"));
+
+var _socket = _interopRequireDefault(require("socket.io-redis"));
 
 var _app = _interopRequireDefault(require("../app"));
 
@@ -37,19 +43,12 @@ var server = _http["default"].createServer(_app["default"]);
 var options = {
   maxHttpBufferSize: 1e8,
   cors: {
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     methods: ['GET', 'POST']
   }
 };
 
-var io = require('socket.io')(server, options); // io.on('connection', (socket) => {
-//   console.log(socket.id);
-//   socket.on('message', (message) => {
-//     console.log(`Received message => ${message}
-//     `);
-//   });
-//   socket.send('Received!');
-// });
+var io = require('socket.io')(server, options); // io.adapter(redisAdapter({ host: 'localhost', port: 6379 }));
 // eslint-disable-next-line prefer-arrow-callback
 
 

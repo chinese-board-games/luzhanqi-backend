@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
+/* eslint-disable func-names */
 /* eslint-disable no-shadow */
 /* eslint-disable no-use-before-define */
 
@@ -8,6 +10,7 @@
 
 import debugLib from 'debug';
 import http from 'http';
+import redisAdapter from 'socket.io-redis';
 import app from '../app';
 import lqz from '../lzqgame';
 
@@ -28,20 +31,13 @@ const server = http.createServer(app);
 const options = {
   maxHttpBufferSize: 1e8,
   cors: {
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     methods: ['GET', 'POST'],
   },
 };
 const io = require('socket.io')(server, options);
 
-// io.on('connection', (socket) => {
-//   console.log(socket.id);
-//   socket.on('message', (message) => {
-//     console.log(`Received message => ${message}
-//     `);
-//   });
-//   socket.send('Received!');
-// });
+// io.adapter(redisAdapter({ host: 'localhost', port: 6379 }));
 
 // eslint-disable-next-line prefer-arrow-callback
 io.sockets.on('connection', function (socket) {

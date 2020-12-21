@@ -27,6 +27,7 @@ exports.initGame = function (sio, socket) {
   gameSocket.on('playerJoinGame', playerJoinGame);
   gameSocket.on('playerAnswer', playerAnswer);
   gameSocket.on('playerRestart', playerRestart);
+  gameSocket.on('makeMove', playerMakeMove);
 };
 /* *******************************
    *                             *
@@ -42,7 +43,7 @@ exports.initGame = function (sio, socket) {
 function hostCreateNewGame() {
   // Create a unique Socket.IO Room
   // eslint-disable-next-line no-bitwise
-  var thisGameId = Math.random() * 100000 | 0; // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
+  var thisGameId = (Math.random() * 100000 | 0).toString(); // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
 
   this.emit('newGameCreated', {
     gameId: thisGameId,
@@ -50,7 +51,7 @@ function hostCreateNewGame() {
   });
   console.log("New game created with ID: ".concat(thisGameId, " at socket: ").concat(this.id)); // Join the Room and wait for the players
 
-  this.join(thisGameId.toString());
+  this.join(thisGameId);
   console.log('rooms: ', this.rooms);
 }
 /*
@@ -63,10 +64,11 @@ function hostPrepareGame(gameId) {
   var sock = this;
   var data = {
     mySocketId: sock.id,
-    gameId: gameId
+    gameId: gameId,
+    turn: 0
   };
   console.log("All players present. Preparing game ".concat(data.gameId));
-  io["in"](data.gameId.toString()).emit('beginNewGame', data);
+  io["in"](data.gameId).emit('beginNewGame', data);
 }
 /*
  * The Countdown has finished, and the game begins!
@@ -102,26 +104,36 @@ function hostNextRound(data) {
 
 
 function playerJoinGame(data) {
-  // console.log('Player ' + data.playerName + 'attempting to join game: ' + data.gameId );
-  // A reference to the player's Socket.IO socket object
-  var sock = this; // Look up the room ID in the Socket.IO manager object.
+  console.log("Player ".concat(data.playerName, " attempting to join game: ").concat(data.joinRoomId)); // A reference to the player's Socket.IO socket object
 
-  var room = gameSocket.manager.rooms["/".concat(data.gameId)]; // If the room exists...
+  var sock = this; //   Look up the room ID in the Socket.IO adapter rooms Set.
+  //   const isRoom = await io.of('/').adapter.allRooms().has(data.joinRoomId);
+  // If the room exists...
+  //   if (isRoom) {
 
-  if (room !== undefined) {
-    // attach the socket id to the data object.
-    data.mySocketId = sock.id; // Join the room
+  console.log("Room: ".concat(data.joinRoomId)); // attach the socket id to the data object.
 
-    sock.join(data.gameId); // console.log('Player ' + data.playerName + ' joining game: ' + data.gameId );
-    // Emit an event notifying the clients that the player has joined the room.
+  data.mySocketId = sock.id; // Join the room
 
-    io.sockets["in"](data.gameId).emit('playerJoinedRoom', data);
-  } else {
-    // Otherwise, send an error message back to the player.
-    this.emit('error', {
-      message: 'This room does not exist.'
-    });
+  sock.join(data.joinRoomId);
+  console.log("Player ".concat(data.playerName, " joining game: ").concat(data.joinRoomId)); // Emit an event notifying the clients that the player has joined the room.
+
+  io.sockets["in"](data.joinRoomId).emit('playerJoinedRoom', data); //   } else {
+  // Otherwise, send an error message back to the player.
+  // this.emit('error', { message: 'This room does not exist.' });
+  //   }
+}
+
+function playerMakeMove(data) {
+  if (true) {
+    // move validation function
+    data.turn += 1;
+    data.player = data.turn % 2 === 0 ? 0 : 1;
+    console.log("Someone made a move, the turn is now ".concat(data.turn, ", it is ").concat(data.player, "'s turn"));
   }
+
+  console.log("Sending back gameState on ".concat(data.gameId));
+  io.sockets["in"](data.gameId).emit('playerMadeMove', data);
 }
 /**
  * A player has tapped a word in the word list.
