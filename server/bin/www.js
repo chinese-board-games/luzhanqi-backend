@@ -10,7 +10,7 @@
 
 import debugLib from 'debug';
 import http from 'http';
-import redisAdapter from 'socket.io-redis';
+// import redisAdapter from 'socket.io-redis';
 import app from '../app';
 import lqz from '../lzqgame';
 
