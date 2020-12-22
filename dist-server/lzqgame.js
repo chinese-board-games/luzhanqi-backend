@@ -1,9 +1,5 @@
 "use strict";
 
-var _boardController = _interopRequireDefault(require("./controllers/boardController"));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
-
 /* eslint-disable no-console */
 
 /* eslint-disable func-names */
@@ -19,6 +15,7 @@ var db = new sqlite3.Database(':memory:', function (err) {
   console.log('Connected to the in-memory SQlite database.');
   return null;
 });
+db.run("CREATE TABLE players (\n    playername TEXT,\n    game TEXT\n    );");
 var io;
 var gameSocket;
 
@@ -30,9 +27,7 @@ exports.initGame = function (sio, socket) {
   }); // Host events
 
   gameSocket.on('hostCreateNewGame', hostCreateNewGame);
-  gameSocket.on('hostRoomFull', hostPrepareGame);
-  gameSocket.on('hostCountdownFinished', hostStartGame);
-  gameSocket.on('hostNextRound', hostNextRound); // Player Events
+  gameSocket.on('hostRoomFull', hostPrepareGame); // Player Events
 
   gameSocket.on('playerJoinGame', playerJoinGame);
   gameSocket.on('playerAnswer', playerAnswer);
@@ -58,9 +53,15 @@ function hostCreateNewGame(_ref) {
   // eslint-disable-next-line no-bitwise
   var thisGameId = (Math.random() * 100000 | 0).toString();
   db.serialize(function () {
-    db.run("CREATE TABLE players".concat(thisGameId, " (playername TEXT);"));
-    db.run("INSERT INTO players".concat(thisGameId, " (playerName) VALUES ('").concat(playerName, "');"));
-    db.all("SELECT playername FROM players".concat(thisGameId), [], function (err, rows) {
+    // db.run(
+    //   `CREATE TABLE players${thisGameId} (playername TEXT);`,
+    // );
+    db.run('INSERT INTO players (playername, game) VALUES (?, ?);', [playerName, thisGameId]); // db.run(
+    //   `INSERT INTO players${thisGameId} (playerName) VALUES ('${playerName}');`,
+    // );
+    // db.all(`SELECT playername FROM players${thisGameId}`, [], (err, rows) => {
+
+    db.all('SELECT playername FROM players WHERE game=?', [thisGameId], function (err, rows) {
       // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
       _this.emit('newGameCreated', {
         gameId: thisGameId,
@@ -90,31 +91,6 @@ function hostPrepareGame(gameId) {
   console.log("All players present. Preparing game ".concat(data.gameId));
   io["in"](data.gameId).emit('beginNewGame', data);
 }
-/*
- * The Countdown has finished, and the game begins!
- * @param gameId The game ID / room ID
- */
-
-
-function hostStartGame(gameId) {
-  console.log('Game Started.');
-  sendWord(0, gameId);
-}
-/**
- * A player answered correctly. Time for the next word.
- * @param data Sent from the client. Contains the current round and gameId (room)
- */
-
-
-function hostNextRound(data) {
-  if (data.round < wordPool.length) {
-    // Send a new set of words back to the host and players.
-    sendWord(data.round, data.gameId);
-  } else {
-    // If the current round exceeds the number of words, send the 'gameOver' event.
-    io.sockets["in"](data.gameId).emit('gameOver', data);
-  }
-}
 /**
  * A player clicked the 'START GAME' button.
  * Attempt to connect them to the room that matches
@@ -138,8 +114,8 @@ function playerJoinGame(data) {
   sock.join(data.joinRoomId);
   console.log("Player ".concat(data.playerName, " joining game: ").concat(data.joinRoomId));
   db.serialize(function () {
-    db.run("INSERT INTO players".concat(data.joinRoomId, " (playerName) VALUES ('").concat(data.playerName, "');"));
-    db.all("SELECT playername FROM players".concat(data.joinRoomId), [], function (err, rows) {
+    db.run('INSERT INTO players (playerName, game) VALUES (?, ?);', [data.playerName, data.joinRoomId]);
+    db.all('SELECT playername FROM players WHERE game=?', [data.joinRoomId], function (err, rows) {
       // Emit an event notifying the clients that the player has joined the room.
       data.players = rows;
       io.sockets["in"](data.joinRoomId).emit('playerJoinedRoom', data);
@@ -184,117 +160,3 @@ function playerRestart(data) {
   data.playerId = this.id;
   io.sockets["in"](data.gameId).emit('playerJoinedRoom', data);
 }
-/* *************************
-   *                       *
-   *      GAME LOGIC       *
-   *                       *
-   ************************* */
-
-/**
- * Get a word for the host, and a list of words for the player.
- *
- * @param wordPoolIndex
- * @param gameId The room identifier
- */
-
-
-function sendWord(wordPoolIndex, gameId) {
-  var data = getWordData(wordPoolIndex);
-  io.sockets["in"](gameId).emit('newWordData', data);
-}
-/**
- * This function does all the work of getting a new words from the pile
- * and organizing the data to be sent back to the clients.
- *
- * @param i The index of the wordPool.
- * @returns {{round: *, word: *, answer: *, list: Array}}
- */
-
-
-function getWordData(i) {
-  // Randomize the order of the available words.
-  // The first element in the randomized array will be displayed on the host screen.
-  // The second element will be hidden in a list of decoys as the correct answer
-  var words = shuffle(wordPool[i].words); // Randomize the order of the decoy words and choose the first 5
-
-  var decoys = shuffle(wordPool[i].decoys).slice(0, 5); // Pick a random spot in the decoy list to put the correct answer
-
-  var rnd = Math.floor(Math.random() * 5);
-  decoys.splice(rnd, 0, words[1]); // Package the words into a single object.
-
-  var wordData = {
-    round: i,
-    word: words[0],
-    // Displayed Word
-    answer: words[1],
-    // Correct Answer
-    list: decoys // Word list for player (decoys and answer)
-
-  };
-  return wordData;
-}
-/*
- * Javascript implementation of Fisher-Yates shuffle algorithm
- * http://stackoverflow.com/questions/2450954/how-to-randomize-a-javascript-array
- */
-
-
-function shuffle(array) {
-  var currentIndex = array.length;
-  var temporaryValue;
-  var randomIndex; // While there remain elements to shuffle...
-
-  while (currentIndex !== 0) {
-    // Pick a remaining element...
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex -= 1; // And swap it with the current element.
-
-    temporaryValue = array[currentIndex];
-    array[currentIndex] = array[randomIndex];
-    array[randomIndex] = temporaryValue;
-  }
-
-  return array;
-}
-/**
- * Each element in the array provides data for a single round in the game.
- *
- * In each round, two random "words" are chosen as the host word and the correct answer.
- * Five random "decoys" are chosen to make up the list displayed to the player.
- * The correct answer is randomly inserted into the list of chosen decoys.
- *
- * @type {Array}
- */
-
-
-var wordPool = [{
-  words: ['sale', 'seal', 'ales', 'leas'],
-  decoys: ['lead', 'lamp', 'seed', 'eels', 'lean', 'cels', 'lyse', 'sloe', 'tels', 'self']
-}, {
-  words: ['item', 'time', 'mite', 'emit'],
-  decoys: ['neat', 'team', 'omit', 'tame', 'mate', 'idem', 'mile', 'lime', 'tire', 'exit']
-}, {
-  words: ['spat', 'past', 'pats', 'taps'],
-  decoys: ['pots', 'laps', 'step', 'lets', 'pint', 'atop', 'tapa', 'rapt', 'swap', 'yaps']
-}, {
-  words: ['nest', 'sent', 'nets', 'tens'],
-  decoys: ['tend', 'went', 'lent', 'teen', 'neat', 'ante', 'tone', 'newt', 'vent', 'elan']
-}, {
-  words: ['pale', 'leap', 'plea', 'peal'],
-  decoys: ['sale', 'pail', 'play', 'lips', 'slip', 'pile', 'pleb', 'pled', 'help', 'lope']
-}, {
-  words: ['races', 'cares', 'scare', 'acres'],
-  decoys: ['crass', 'scary', 'seeds', 'score', 'screw', 'cager', 'clear', 'recap', 'trace', 'cadre']
-}, {
-  words: ['bowel', 'elbow', 'below', 'beowl'],
-  decoys: ['bowed', 'bower', 'robed', 'probe', 'roble', 'bowls', 'blows', 'brawl', 'bylaw', 'ebola']
-}, {
-  words: ['dates', 'stead', 'sated', 'adset'],
-  decoys: ['seats', 'diety', 'seeds', 'today', 'sited', 'dotes', 'tides', 'duets', 'deist', 'diets']
-}, {
-  words: ['spear', 'parse', 'reaps', 'pares'],
-  decoys: ['ramps', 'tarps', 'strep', 'spore', 'repos', 'peris', 'strap', 'perms', 'ropes', 'super']
-}, {
-  words: ['stone', 'tones', 'steno', 'onset'],
-  decoys: ['snout', 'tongs', 'stent', 'tense', 'terns', 'santo', 'stony', 'toons', 'snort', 'stint']
-}];

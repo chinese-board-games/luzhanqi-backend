@@ -17,14 +17,13 @@ var _debug = _interopRequireDefault(require("debug"));
 
 var _http = _interopRequireDefault(require("http"));
 
-var _socket = _interopRequireDefault(require("socket.io-redis"));
-
 var _app = _interopRequireDefault(require("../app"));
 
 var _lzqgame = _interopRequireDefault(require("../lzqgame"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
+// import redisAdapter from 'socket.io-redis';
 var debug = (0, _debug["default"])('your-project-name:server');
 /**
  * Get port from environment and store in Express.
