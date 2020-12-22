@@ -3,6 +3,16 @@
 /* eslint-disable no-use-before-define */
 import generateEmptyBoard from './controllers/boardController';
 
+const sqlite3 = require('sqlite3').verbose();
+
+const db = new sqlite3.Database(':memory:', ((err) => {
+  if (err) {
+    return console.error(err.message);
+  }
+  console.log('Connected to the in-memory SQlite database.');
+  return null;
+}));
+
 let io;
 let gameSocket;
 
@@ -33,18 +43,30 @@ exports.initGame = function (sio, socket) {
 /**
  * The 'START' button was clicked and 'hostCreateNewGame' event occurred.
  */
-function hostCreateNewGame() {
+function hostCreateNewGame({ playerName }) {
   // Create a unique Socket.IO Room
   // eslint-disable-next-line no-bitwise
   const thisGameId = ((Math.random() * 100000) | 0).toString();
+  db.serialize(() => {
+    db.run(
+      `CREATE TABLE players${thisGameId} (playername TEXT);`,
+    );
+    db.run(
+      `INSERT INTO players${thisGameId} (playerName) VALUES ('${playerName}');`,
+    );
+    db.all(`SELECT playername FROM players${thisGameId}`, [], (err, rows) => {
+      // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
+      this.emit('newGameCreated', {
+        gameId: thisGameId,
+        mySocketId: this.id,
+        players: rows,
+      });
+      console.log(`New game created with ID: ${thisGameId} at socket: ${this.id}`);
 
-  // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
-  this.emit('newGameCreated', { gameId: thisGameId, mySocketId: this.id });
-  console.log(`New game created with ID: ${thisGameId} at socket: ${this.id}`);
-
-  // Join the Room and wait for the players
-  this.join(thisGameId);
-  console.log('rooms: ', this.rooms);
+      // Join the Room and wait for the players
+      this.join(thisGameId);
+    });
+  });
 }
 
 /*
@@ -110,9 +132,17 @@ function playerJoinGame(data) {
   sock.join(data.joinRoomId);
 
   console.log(`Player ${data.playerName} joining game: ${data.joinRoomId}`);
+  db.serialize(() => {
+    db.run(
+      `INSERT INTO players${data.joinRoomId} (playerName) VALUES ('${data.playerName}');`,
+    );
+    db.all(`SELECT playername FROM players${data.joinRoomId}`, [], (err, rows) => {
+      // Emit an event notifying the clients that the player has joined the room.
+      data.players = rows;
+      io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
+    });
+  });
 
-  // Emit an event notifying the clients that the player has joined the room.
-  io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
 //   } else {
   // Otherwise, send an error message back to the player.
   // this.emit('error', { message: 'This room does not exist.' });
@@ -122,8 +152,7 @@ function playerJoinGame(data) {
 function playerMakeMove(data) {
   if (true) { // move validation function
     data.turn += 1;
-    data.player = data.turn % 2 === 0 ? 0 : 1;
-    console.log(`Someone made a move, the turn is now ${data.turn}, it is ${data.player}'s turn`);
+    console.log(`Someone made a move, the turn is now ${data.turn}`);
   }
   console.log(`Sending back gameState on ${data.gameId}`);
   io.sockets.in(data.gameId).emit('playerMadeMove', data);
