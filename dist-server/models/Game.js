@@ -17,7 +17,8 @@ var GameSchema = new _mongoose.Schema({
   room: String,
   host: String,
   players: [],
-  moves: []
+  moves: [],
+  turn: Number
 }, {
   timestamps: true
 });

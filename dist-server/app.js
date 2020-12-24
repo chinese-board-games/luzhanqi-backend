@@ -48,7 +48,7 @@ require('babel-polyfill');
 _dotenv["default"].config(); // DB Setup
 
 
-var mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/blog';
+var mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
 
 _mongoose["default"].connect(mongoURI, {
   useFindAndModify: false,
