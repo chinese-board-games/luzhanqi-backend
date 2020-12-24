@@ -14,7 +14,7 @@ require('babel-polyfill');
 dotenv.config();
 
 // DB Setup
-const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/blog';
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
 mongoose.connect(mongoURI, {
   useFindAndModify: false,
   useNewUrlParser: true,
