@@ -1,21 +1,11 @@
 "use strict";
 
-/* eslint-disable no-console */
+var _gameController = require("./controllers/gameController");
 
-/* eslint-disable func-names */
+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { Promise.resolve(value).then(_next, _throw); } }
 
-/* eslint-disable no-use-before-define */
-var sqlite3 = require('sqlite3').verbose();
+function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
 
-var db = new sqlite3.Database(':memory:', function (err) {
-  if (err) {
-    return console.error(err.message);
-  }
-
-  console.log('Connected to the in-memory SQlite database.');
-  return null;
-});
-db.run("CREATE TABLE players (\n    playername TEXT,\n    game TEXT\n    );");
 var io;
 var gameSocket;
 
@@ -45,41 +35,75 @@ exports.initGame = function (sio, socket) {
  */
 
 
-function hostCreateNewGame(_ref) {
-  var _this = this;
-
-  var playerName = _ref.playerName;
-  // Create a unique Socket.IO Room
-  // eslint-disable-next-line no-bitwise
-  var thisGameId = (Math.random() * 100000 | 0).toString();
-  db.serialize(function () {
-    // db.run(
-    //   `CREATE TABLE players${thisGameId} (playername TEXT);`,
-    // );
-    db.run('INSERT INTO players (playername, game) VALUES (?, ?);', [playerName, thisGameId]); // db.run(
-    //   `INSERT INTO players${thisGameId} (playerName) VALUES ('${playerName}');`,
-    // );
-    // db.all(`SELECT playername FROM players${thisGameId}`, [], (err, rows) => {
-
-    db.all('SELECT playername FROM players WHERE game=?', [thisGameId], function (err, rows) {
-      // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
-      _this.emit('newGameCreated', {
-        gameId: thisGameId,
-        mySocketId: _this.id,
-        players: rows
-      });
-
-      console.log("New game created with ID: ".concat(thisGameId, " at socket: ").concat(_this.id)); // Join the Room and wait for the players
-
-      _this.join(thisGameId);
-    });
-  });
+function hostCreateNewGame(_x) {
+  return _hostCreateNewGame.apply(this, arguments);
 }
 /*
  * Two players have joined. Alert the host!
  * @param gameId The game ID / room ID
  */
 
+
+function _hostCreateNewGame() {
+  _hostCreateNewGame = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(_ref) {
+    var playerName, thisGameId, myGame;
+    return regeneratorRuntime.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            playerName = _ref.playerName;
+            // Create a unique Socket.IO Room
+            // eslint-disable-next-line no-bitwise
+            thisGameId = (Math.random() * 100000 | 0).toString();
+            _context.next = 4;
+            return (0, _gameController.createGame)({
+              room: thisGameId,
+              host: playerName
+            });
+
+          case 4:
+            myGame = _context.sent;
+            console.log(myGame);
+
+            if (!myGame) {
+              _context.next = 19;
+              break;
+            }
+
+            _context.t0 = this;
+            _context.t1 = thisGameId;
+            _context.t2 = this.id;
+            _context.next = 12;
+            return (0, _gameController.getPlayers)(thisGameId);
+
+          case 12:
+            _context.t3 = _context.sent;
+            _context.t4 = {
+              gameId: _context.t1,
+              mySocketId: _context.t2,
+              players: _context.t3
+            };
+
+            _context.t0.emit.call(_context.t0, 'newGameCreated', _context.t4);
+
+            console.log("New game created with ID: ".concat(thisGameId, " at socket: ").concat(this.id)); // Join the Room and wait for the players
+
+            this.join(thisGameId);
+            _context.next = 20;
+            break;
+
+          case 19:
+            console.error('Game was not created.');
+
+          case 20:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee, this);
+  }));
+  return _hostCreateNewGame.apply(this, arguments);
+}
 
 function hostPrepareGame(gameId) {
   var sock = this;
@@ -99,31 +123,65 @@ function hostPrepareGame(gameId) {
  */
 
 
-function playerJoinGame(data) {
-  console.log("Player ".concat(data.playerName, " attempting to join game: ").concat(data.joinRoomId)); // A reference to the player's Socket.IO socket object
+function playerJoinGame(_x2) {
+  return _playerJoinGame.apply(this, arguments);
+}
 
-  var sock = this; //   Look up the room ID in the Socket.IO adapter rooms Set.
-  //   const isRoom = await io.of('/').adapter.allRooms().has(data.joinRoomId);
-  // If the room exists...
-  //   if (isRoom) {
+function _playerJoinGame() {
+  _playerJoinGame = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(data) {
+    var sock, myUpdatedGame;
+    return regeneratorRuntime.wrap(function _callee2$(_context2) {
+      while (1) {
+        switch (_context2.prev = _context2.next) {
+          case 0:
+            console.log("Player ".concat(data.playerName, " attempting to join game: ").concat(data.joinRoomId)); // A reference to the player's Socket.IO socket object
 
-  console.log("Room: ".concat(data.joinRoomId)); // attach the socket id to the data object.
+            sock = this; //   Look up the room ID in the Socket.IO adapter rooms Set.
+            //   const isRoom = await io.of('/').adapter.allRooms().has(data.joinRoomId);
+            // If the room exists...
+            //   if (isRoom) {
 
-  data.mySocketId = sock.id; // Join the room
+            console.log("Room: ".concat(data.joinRoomId)); // attach the socket id to the data object.
 
-  sock.join(data.joinRoomId);
-  console.log("Player ".concat(data.playerName, " joining game: ").concat(data.joinRoomId));
-  db.serialize(function () {
-    db.run('INSERT INTO players (playerName, game) VALUES (?, ?);', [data.playerName, data.joinRoomId]);
-    db.all('SELECT playername FROM players WHERE game=?', [data.joinRoomId], function (err, rows) {
-      // Emit an event notifying the clients that the player has joined the room.
-      data.players = rows;
-      io.sockets["in"](data.joinRoomId).emit('playerJoinedRoom', data);
-    });
-  }); //   } else {
-  // Otherwise, send an error message back to the player.
-  // this.emit('error', { message: 'This room does not exist.' });
-  //   }
+            data.mySocketId = sock.id; // Join the room
+
+            sock.join(data.joinRoomId);
+            console.log("Player ".concat(data.playerName, " joining game: ").concat(data.joinRoomId));
+            _context2.next = 8;
+            return (0, _gameController.addPlayer)({
+              room: data.joinRoomId,
+              playerName: data.playerName
+            });
+
+          case 8:
+            myUpdatedGame = _context2.sent;
+
+            if (!myUpdatedGame) {
+              _context2.next = 16;
+              break;
+            }
+
+            _context2.next = 12;
+            return (0, _gameController.getPlayers)(data.joinRoomId);
+
+          case 12:
+            data.players = _context2.sent;
+            io.sockets["in"](data.joinRoomId).emit('playerJoinedRoom', data);
+            _context2.next = 18;
+            break;
+
+          case 16:
+            console.error('Player could not be added to given game');
+            sock.emit('error', "".concat(data.playerName, " could not be added to game: ").concat(data.joinRoomId));
+
+          case 18:
+          case "end":
+            return _context2.stop();
+        }
+      }
+    }, _callee2, this);
+  }));
+  return _playerJoinGame.apply(this, arguments);
 }
 
 function playerMakeMove(data) {

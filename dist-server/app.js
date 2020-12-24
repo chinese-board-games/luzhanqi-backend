@@ -19,6 +19,8 @@ var _expressGraphql = require("express-graphql");
 
 var _dotenv = _interopRequireDefault(require("dotenv"));
 
+var _mongoose = _interopRequireDefault(require("mongoose"));
+
 var _index = _interopRequireDefault(require("./routes/index"));
 
 var _users = _interopRequireDefault(require("./routes/users"));
@@ -43,8 +45,19 @@ function _AwaitValue(value) { this.wrapped = value; }
 
 require('babel-polyfill');
 
-_dotenv["default"].config(); // Construct a schema, using GraphQL schema language
+_dotenv["default"].config(); // DB Setup
 
+
+var mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
+
+_mongoose["default"].connect(mongoURI, {
+  useFindAndModify: false,
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}); // set mongoose promises to es6 default
+
+
+_mongoose["default"].Promise = global.Promise; // Construct a schema, using GraphQL schema language
 
 var schema = (0, _graphql.buildSchema)("\n  type Query {\n    hello: String\n  }\n  type Subscription {\n    greetings: String\n  }\n"); // The root provides a resolver function for each API endpoint
 

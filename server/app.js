@@ -5,12 +5,23 @@ import logger from 'morgan';
 import { buildSchema, execute, subscribe } from 'graphql';
 import { graphqlHTTP } from 'express-graphql';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import indexRouter from './routes/index';
 import usersRouter from './routes/users';
 
 require('babel-polyfill');
 
 dotenv.config();
+
+// DB Setup
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
+mongoose.connect(mongoURI, {
+  useFindAndModify: false,
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+// set mongoose promises to es6 default
+mongoose.Promise = global.Promise;
 
 // Construct a schema, using GraphQL schema language
 const schema = buildSchema(`
