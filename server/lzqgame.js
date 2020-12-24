@@ -1,23 +1,9 @@
 /* eslint-disable no-console */
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
-
-const sqlite3 = require('sqlite3').verbose();
-
-const db = new sqlite3.Database(':memory:', ((err) => {
-  if (err) {
-    return console.error(err.message);
-  }
-  console.log('Connected to the in-memory SQlite database.');
-  return null;
-}));
-
-db.run(
-  `CREATE TABLE players (
-    playername TEXT,
-    game TEXT
-    );`,
-);
+import {
+  createGame, addPlayer, getPlayers,
+} from './controllers/gameController';
 
 let io;
 let gameSocket;
@@ -47,34 +33,28 @@ exports.initGame = function (sio, socket) {
 /**
  * The 'START' button was clicked and 'hostCreateNewGame' event occurred.
  */
-function hostCreateNewGame({ playerName }) {
+async function hostCreateNewGame({ playerName }) {
   // Create a unique Socket.IO Room
   // eslint-disable-next-line no-bitwise
   const thisGameId = ((Math.random() * 100000) | 0).toString();
-  db.serialize(() => {
-    // db.run(
-    //   `CREATE TABLE players${thisGameId} (playername TEXT);`,
-    // );
-    db.run(
-      'INSERT INTO players (playername, game) VALUES (?, ?);', [playerName, thisGameId],
-    );
-    // db.run(
-    //   `INSERT INTO players${thisGameId} (playerName) VALUES ('${playerName}');`,
-    // );
-    // db.all(`SELECT playername FROM players${thisGameId}`, [], (err, rows) => {
-    db.all('SELECT playername FROM players WHERE game=?', [thisGameId], (err, rows) => {
-      // Return the Room ID (gameId) and the socket ID (mySocketId) to the browser client
-      this.emit('newGameCreated', {
-        gameId: thisGameId,
-        mySocketId: this.id,
-        players: rows,
-      });
-      console.log(`New game created with ID: ${thisGameId} at socket: ${this.id}`);
-
-      // Join the Room and wait for the players
-      this.join(thisGameId);
-    });
+  const myGame = await createGame({
+    room: thisGameId,
+    host: playerName,
   });
+  console.log(myGame);
+  if (myGame) {
+    this.emit('newGameCreated', {
+      gameId: thisGameId,
+      mySocketId: this.id,
+      players: await getPlayers(thisGameId),
+    });
+    console.log(`New game created with ID: ${thisGameId} at socket: ${this.id}`);
+
+    // Join the Room and wait for the players
+    this.join(thisGameId);
+  } else {
+    console.error('Game was not created.');
+  }
 }
 
 /*
@@ -98,7 +78,7 @@ function hostPrepareGame(gameId) {
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
  */
-function playerJoinGame(data) {
+async function playerJoinGame(data) {
   console.log(`Player ${data.playerName} attempting to join game: ${data.joinRoomId}`);
 
   // A reference to the player's Socket.IO socket object
@@ -117,16 +97,18 @@ function playerJoinGame(data) {
   sock.join(data.joinRoomId);
 
   console.log(`Player ${data.playerName} joining game: ${data.joinRoomId}`);
-  db.serialize(() => {
-    db.run(
-      'INSERT INTO players (playerName, game) VALUES (?, ?);', [data.playerName, data.joinRoomId],
-    );
-    db.all('SELECT playername FROM players WHERE game=?', [data.joinRoomId], (err, rows) => {
-      // Emit an event notifying the clients that the player has joined the room.
-      data.players = rows;
-      io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
-    });
+
+  const myUpdatedGame = await addPlayer({
+    room: data.joinRoomId,
+    playerName: data.playerName,
   });
+  if (myUpdatedGame) {
+    data.players = await getPlayers(data.joinRoomId);
+    io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
+  } else {
+    console.error('Player could not be added to given game');
+    sock.emit('error', `${data.playerName} could not be added to game: ${data.joinRoomId}`);
+  }
 
 //   } else {
   // Otherwise, send an error message back to the player.
