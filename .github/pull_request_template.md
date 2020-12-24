@@ -13,11 +13,3 @@ One to two sentence description.
 
 - [ ] Unit/integration tests
 - [ ] Documentation
-
-## Tickets
-
-- [Issue Number](Link)
-
-## Screenshots
-
-Please attach any design screenshots if UI update.
