@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.getPlayers = exports.addPlayer = exports.createGame = void 0;
+exports.isPlayerTurn = exports.getPlayers = exports.addPlayer = exports.createGame = void 0;
 
 var _Game = _interopRequireDefault(require("../models/Game"));
 
@@ -37,8 +37,11 @@ var createGame = /*#__PURE__*/function () {
             game.players = [host];
             game.moves = [];
             game.turn = 0;
+            game.board = new Array(13).fill(null).map(function () {
+              return new Array(5).fill(null);
+            });
             updatedGame = null;
-            _context.next = 12;
+            _context.next = 13;
             return game.save().then(function () {
               console.log("Game ".concat(room, " saved in MongoDB"));
               console.log(game);
@@ -47,10 +50,10 @@ var createGame = /*#__PURE__*/function () {
               console.error(err);
             });
 
-          case 12:
+          case 13:
             return _context.abrupt("return", updatedGame);
 
-          case 13:
+          case 14:
           case "end":
             return _context.stop();
         }
@@ -171,6 +174,44 @@ var getPlayers = /*#__PURE__*/function () {
   return function getPlayers(_x3) {
     return _ref4.apply(this, arguments);
   };
-}();
+}(); // takes playerName, room number, and turn number and returns whether the player made a move during their turn
+
 
 exports.getPlayers = getPlayers;
+
+var isPlayerTurn = /*#__PURE__*/function () {
+  var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(_ref5) {
+    var playerName, gameId, turn, myGame, playerId;
+    return regeneratorRuntime.wrap(function _callee4$(_context4) {
+      while (1) {
+        switch (_context4.prev = _context4.next) {
+          case 0:
+            playerName = _ref5.playerName, gameId = _ref5.gameId, turn = _ref5.turn;
+            _context4.next = 3;
+            return _Game["default"].find({
+              room: gameId
+            });
+
+          case 3:
+            myGame = _context4.sent;
+
+            /** assume the first matching game found is the only result, and that it is correct
+             * assume that there are only two players, arrange by odd / even
+             * */
+            playerId = myGame[0].players.indexOf(playerName);
+            return _context4.abrupt("return", turn % 2 === playerId);
+
+          case 6:
+          case "end":
+            return _context4.stop();
+        }
+      }
+    }, _callee4);
+  }));
+
+  return function isPlayerTurn(_x4) {
+    return _ref6.apply(this, arguments);
+  };
+}();
+
+exports.isPlayerTurn = isPlayerTurn;
