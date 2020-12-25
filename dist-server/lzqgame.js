@@ -184,21 +184,50 @@ function _playerJoinGame() {
   return _playerJoinGame.apply(this, arguments);
 }
 
-function playerMakeMove(data) {
-  if (true) {
-    // move validation function
-    data.turn += 1;
-    console.log("Someone made a move, the turn is now ".concat(data.turn));
-  }
-
-  console.log("Sending back gameState on ".concat(data.gameId));
-  io.sockets["in"](data.gameId).emit('playerMadeMove', data);
+function playerMakeMove(_x3) {
+  return _playerMakeMove.apply(this, arguments);
 }
 /**
  * A player has tapped a word in the word list.
  * @param data gameId
  */
 
+
+function _playerMakeMove() {
+  _playerMakeMove = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(data) {
+    return regeneratorRuntime.wrap(function _callee3$(_context3) {
+      while (1) {
+        switch (_context3.prev = _context3.next) {
+          case 0:
+            _context3.next = 2;
+            return (0, _gameController.isPlayerTurn)(data);
+
+          case 2:
+            if (!_context3.sent) {
+              _context3.next = 9;
+              break;
+            }
+
+            // move validation function
+            data.turn += 1;
+            console.log("Someone made a move, the turn is now ".concat(data.turn));
+            console.log("Sending back gameState on ".concat(data.gameId));
+            io.sockets["in"](data.gameId).emit('playerMadeMove', data);
+            _context3.next = 10;
+            break;
+
+          case 9:
+            this.emit('error', 'It is not your turn.');
+
+          case 10:
+          case "end":
+            return _context3.stop();
+        }
+      }
+    }, _callee3, this);
+  }));
+  return _playerMakeMove.apply(this, arguments);
+}
 
 function playerAnswer(data) {
   // console.log('Player ID: ' + data.playerId + ' answered a question with: ' + data.answer);

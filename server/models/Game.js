@@ -6,6 +6,7 @@ const GameSchema = new Schema({
   players: [],
   moves: [],
   turn: Number,
+  board: [],
 }, { timestamps: true });
 
 const GameModel = mongoose.model('Game', GameSchema);

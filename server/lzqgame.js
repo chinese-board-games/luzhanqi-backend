@@ -2,7 +2,7 @@
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
 import {
-  createGame, addPlayer, getPlayers,
+  createGame, addPlayer, getPlayers, isPlayerTurn,
 } from './controllers/gameController';
 
 let io;
@@ -116,13 +116,15 @@ async function playerJoinGame(data) {
 //   }
 }
 
-function playerMakeMove(data) {
-  if (true) { // move validation function
+async function playerMakeMove(data) {
+  if (await isPlayerTurn(data)) { // move validation function
     data.turn += 1;
     console.log(`Someone made a move, the turn is now ${data.turn}`);
+    console.log(`Sending back gameState on ${data.gameId}`);
+    io.sockets.in(data.gameId).emit('playerMadeMove', data);
+  } else {
+    this.emit('error', 'It is not your turn.');
   }
-  console.log(`Sending back gameState on ${data.gameId}`);
-  io.sockets.in(data.gameId).emit('playerMadeMove', data);
 }
 
 /**
