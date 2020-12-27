@@ -5,4 +5,4 @@ const sampleBoard = {
   playerTwoPositions: [],
 };
 
-export default sampleBoard;
+module.exports = sampleBoard;

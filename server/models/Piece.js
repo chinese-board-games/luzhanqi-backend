@@ -1,8 +1,8 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 
-const Piece = new Schema({
+const PieceSchema = new Schema({
   name: String,
   rank: String,
   visible: Boolean,
@@ -10,4 +10,6 @@ const Piece = new Schema({
   imageURL: String,
 });
 
-export default Piece;
+const PieceModel = mongoose.model('Game', PieceSchema);
+
+module.exports = PieceModel;
