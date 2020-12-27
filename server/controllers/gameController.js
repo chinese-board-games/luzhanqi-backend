@@ -1,6 +1,6 @@
-import Game from '../models/Game';
+const Game = require('../models/Game');
 
-export const createGame = async ({
+const createGame = async ({
   room, host,
 }) => {
   const game = await new Game();
@@ -9,6 +9,7 @@ export const createGame = async ({
   game.players = [host];
   game.moves = [];
   game.turn = 0;
+  game.board = new Array(13).fill(null).map(() => (new Array(5).fill(null)));
   let updatedGame = null;
   await game.save().then(() => {
     console.log(`Game ${room} saved in MongoDB`);
@@ -20,7 +21,7 @@ export const createGame = async ({
   return updatedGame;
 };
 
-export const addPlayer = async (data) => {
+const addPlayer = async (data) => {
   const { room, playerName } = data;
   try {
     const myGame = await Game.find({ room });
@@ -43,10 +44,24 @@ export const addPlayer = async (data) => {
 };
 
 // takes room and returns array of players in that room
-export const getPlayers = async (room) => {
+const getPlayers = async (room) => {
   const myGame = await Game.find({ room });
   if (myGame) {
     return myGame[0].players;
   }
   throw Error;
+};
+
+// takes playerName, room number, and turn number and returns whether the player made a move during their turn
+const isPlayerTurn = async ({ playerName, gameId, turn }) => {
+  const myGame = await Game.find({ room: gameId });
+  /** assume the first matching game found is the only result, and that it is correct
+   * assume that there are only two players, arrange by odd / even
+   * */
+  const playerId = myGame[0].players.indexOf(playerName);
+  return turn % 2 === playerId;
+};
+
+module.exports = {
+  createGame, addPlayer, getPlayers, isPlayerTurn,
 };
