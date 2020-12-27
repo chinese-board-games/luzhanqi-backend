@@ -8,10 +8,10 @@
  * Module dependencies.
  */
 
-import debugLib from 'debug';
-import http from 'http';
-import app from '../app';
-import lqz from '../lzqgame';
+const debugLib = require('debug');
+const http = require('http');
+const app = require('../app');
+const lqz = require('../lzqgame');
 
 const debug = debugLib('your-project-name:server');
 
@@ -34,9 +34,9 @@ const options = {
     methods: ['GET', 'POST'],
   },
 };
-const io = require('socket.io')(server, options);
 
 // io.adapter(redisAdapter({ host: 'localhost', port: 6379 }));
+const io = require('socket.io')(server, options);
 
 // eslint-disable-next-line prefer-arrow-callback
 io.sockets.on('connection', function (socket) {

@@ -1,9 +1,9 @@
-import { validate } from 'graphql';
-import Board from '../models/Board';
-import sampleBoard from './sampleBoard';
+const { validate } = require('graphql');
+const Board = require('../models/Board');
+const sampleBoard = require('./sampleBoard');
 
 // the player will call this to start a new game
-export const generateEmptyBoard = () => {
+const generateEmptyBoard = () => {
   const board = new Board();
 
   // initialize camp locations
@@ -66,7 +66,7 @@ const placePieces = (arr1, arr2) => {
 };
 
 // process one player's placement of pieces, return board if complete, else null
-export const processPlayerPlacement = (board, arr, player) => {
+const processPlayerPlacement = (board, arr, player) => {
   let startingBoard = null;
   if (!validateSide(arr)) {
     return null;
@@ -96,3 +96,8 @@ const isCamp = (board, y, x) => board.camps.includes([y, x]);
 const winner = (board) => null;
 
 // console.log(validateSide(sampleBoard));
+
+module.exports = {
+  generateEmptyBoard,
+  processPlayerPlacement,
+};
