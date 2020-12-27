@@ -1,15 +1,11 @@
-import express from 'express';
-import path from 'path';
-import cookieParser from 'cookie-parser';
-import logger from 'morgan';
-import { buildSchema, execute, subscribe } from 'graphql';
-import { graphqlHTTP } from 'express-graphql';
-import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import indexRouter from './routes/index';
-import usersRouter from './routes/users';
-
-require('babel-polyfill');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const { buildSchema, execute, subscribe } = require('graphql');
+const { graphqlHTTP } = require('express-graphql');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
+const express = require('express');
 
 dotenv.config();
 
@@ -63,8 +59,5 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
-// app.listen(process.env.API_PORT);
 
-export default app;
+module.exports = app;

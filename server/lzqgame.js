@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
-import {
+const {
   createGame, addPlayer, getPlayers, isPlayerTurn,
-} from './controllers/gameController';
+} = require('./controllers/gameController');
 
 let io;
 let gameSocket;
