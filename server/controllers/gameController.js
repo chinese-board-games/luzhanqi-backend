@@ -1,5 +1,12 @@
 const Game = require('../models/Game');
 
+/**
+ * creates a Game in the database and returns
+ * @param {Object} { room, host } the room ID and host player name
+ * @returns {Object} the Game object as defined in Game.js
+ * @see createGame
+ */
+
 const createGame = async ({
   room, host,
 }) => {
@@ -21,17 +28,22 @@ const createGame = async ({
   return updatedGame;
 };
 
-const addPlayer = async (data) => {
-  const { room, playerName } = data;
+/**
+ * adds a player to a Game in the database and returns the updated game or null
+ * @param {Object} { room, playerName } the room ID and joining player name
+ * @returns {Object} the updated Game object as defined in Game.js on success
+ * @returns {null} on failure
+ * @see addPlayer
+ */
+
+const addPlayer = async ({ room, playerName }) => {
   try {
     const myGame = await Game.find({ room });
     if (myGame.length > 0) {
     // assume only one result, take first one
       const playerArray = myGame[0].players;
       playerArray.push(playerName);
-      await Game.findOneAndUpdate({ room }, { ...myGame, players: playerArray }).then(() => {
-        console.log(`${playerName} added to game ${room}`);
-      });
+      await Game.findOneAndUpdate({ room }, { ...myGame, players: playerArray });
       const myUpdatedGame = await Game.find({ room });
       return myUpdatedGame;
     }
@@ -43,7 +55,12 @@ const addPlayer = async (data) => {
   }
 };
 
-// takes room and returns array of players in that room
+/**
+ * takes room and returns array of players in that room
+ * @param {string} room the room ID
+ * @returns {Array<Object>} an array of objects with {int: playerName}
+ * @see getPlayers
+ */
 const getPlayers = async (room) => {
   const myGame = await Game.find({ room });
   if (myGame) {
@@ -52,7 +69,12 @@ const getPlayers = async (room) => {
   throw Error;
 };
 
-// takes playerName, room number, and turn number and returns whether the player made a move during their turn
+/**
+ * takes playerName, room number, and turn number and returns turn validity
+ * @param {Object} { playerName, gameId, turn } the player name, the room ID, and the global turn
+ * @returns {boolean} indicates whether the player made a move during their turn
+ * @see isPlayerTurn
+ */
 const isPlayerTurn = async ({ playerName, gameId, turn }) => {
   const myGame = await Game.find({ room: gameId });
   /** assume the first matching game found is the only result, and that it is correct
