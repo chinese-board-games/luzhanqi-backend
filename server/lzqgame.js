@@ -87,33 +87,33 @@ async function playerJoinGame(data) {
   //   Look up the room ID in the Socket.IO adapter rooms Set.
   //   const isRoom = await io.of('/').adapter.allRooms().has(data.joinRoomId);
 
-  // If the room exists...
-  //   if (isRoom) {
-  console.log(`Room: ${data.joinRoomId}`);
-  // attach the socket id to the data object.
-  data.mySocketId = sock.id;
+  const existingPlayers = await getPlayers(data.joinRoomId);
 
-  // Join the room
-  sock.join(data.joinRoomId);
-
-  console.log(`Player ${data.playerName} joining game: ${data.joinRoomId}`);
-
-  const myUpdatedGame = await addPlayer({
-    room: data.joinRoomId,
-    playerName: data.playerName,
-  });
-  if (myUpdatedGame) {
-    data.players = await getPlayers(data.joinRoomId);
-    io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
+  if (existingPlayers.includes(data.playerName)) {
+    sock.emit('error', 'There is already a player in this game by that name. Please choose another.');
   } else {
-    console.error('Player could not be added to given game');
-    sock.emit('error', `${data.playerName} could not be added to game: ${data.joinRoomId}`);
-  }
+    console.log(`Room: ${data.joinRoomId}`);
+    // attach the socket id to the data object.
+    data.mySocketId = sock.id;
 
-//   } else {
-  // Otherwise, send an error message back to the player.
-  // this.emit('error', { message: 'This room does not exist.' });
-//   }
+    // Join the room
+    sock.join(data.joinRoomId);
+
+    console.log(`Player ${data.playerName} joining game: ${data.joinRoomId}`);
+
+    const myUpdatedGame = await addPlayer({
+      room: data.joinRoomId,
+      playerName: data.playerName,
+    });
+    if (myUpdatedGame) {
+      data.players = await getPlayers(data.joinRoomId);
+      io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
+      sock.emit('youHaveJoinedTheRoom');
+    } else {
+      console.error('Player could not be added to given game');
+      sock.emit('error', `${data.playerName} could not be added to game: ${data.joinRoomId}`);
+    }
+  }
 }
 
 async function playerMakeMove(data) {
