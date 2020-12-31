@@ -15,9 +15,8 @@
     ]
   },
   "scripts": {
-    "server": "node ./server/bin/www",
-    "start": "nodemon",
-    "dev": "NODE_ENV=development npm run server",
+    "start": "node ./server/bin/www",
+    "dev": "nodemon",
     "prod": "NODE_ENV=production npm run server"
   },
   "dependencies": {
