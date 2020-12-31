@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "nodemonConfig": {
-    "exec": "npm run dev",
+    "exec": "NODE_ENV=development npm run start",
     "watch": [
       "server/*",
       "public/*"
@@ -17,7 +17,7 @@
   "scripts": {
     "start": "node ./server/bin/www",
     "dev": "nodemon",
-    "prod": "NODE_ENV=production npm run server"
+    "prod": "NODE_ENV=production npm run start"
   },
   "dependencies": {
     "chai": "^4.2.0",
