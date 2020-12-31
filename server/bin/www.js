@@ -19,8 +19,7 @@ const debug = debugLib('your-project-name:server');
  * Get port from environment and store in Express.
  */
 
-const port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
+app.set('port', process.env.PORT || 3000);
 
 /**
  * Create HTTP server.
@@ -48,29 +47,9 @@ io.sockets.on('connection', function (socket) {
  * Listen on provided port, on all network interfaces.
  */
 
-server.listen(port, '0.0.0.0');
+server.listen(process.env.PORT || 3000, '0.0.0.0');
 server.on('error', onError);
 server.on('listening', onListening);
-
-/**
- * Normalize a port into a number, string, or false.
- */
-
-function normalizePort(val) {
-  const port = parseInt(val, 10);
-
-  if (Number.isNaN(port)) {
-    // named pipe
-    return val;
-  }
-
-  if (port >= 0) {
-    // port number
-    return port;
-  }
-
-  return false;
-}
 
 /**
  * Event listener for HTTP server "error" event.
@@ -82,8 +61,8 @@ function onError(error) {
   }
 
   const bind = typeof port === 'string'
-    ? `Pipe ${port}`
-    : `Port ${port}`;
+    ? `Pipe ${process.env.PORT || 3000}`
+    : `Port ${process.env.PORT || 3000}`;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
