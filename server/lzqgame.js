@@ -57,7 +57,7 @@ async function hostCreateNewGame({ playerName }) {
   }
 }
 
-/*
+/**
  * Two players have joined. Alert the host!
  * @param gameId The game ID / room ID
  */
