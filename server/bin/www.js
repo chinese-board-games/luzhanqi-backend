@@ -16,12 +16,6 @@ const lqz = require('../lzqgame');
 const debug = debugLib('your-project-name:server');
 
 /**
- * Get port from environment and store in Express.
- */
-
-// app.set('port', process.env.PORT || 3000);
-
-/**
  * Create HTTP server.
  */
 
@@ -29,7 +23,7 @@ const server = http.createServer(app);
 const options = {
   maxHttpBufferSize: 1e8,
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://lzq.surge.sh'],
     methods: ['GET', 'POST'],
   },
 };
