@@ -2,7 +2,7 @@
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
 const {
-  createGame, addPlayer, getPlayers, isPlayerTurn,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard,
 } = require('./controllers/gameController');
 
 let io;
@@ -19,9 +19,9 @@ exports.initGame = function (sio, socket) {
 
   // Player Events
   gameSocket.on('playerJoinGame', playerJoinGame);
-  gameSocket.on('playerAnswer', playerAnswer);
   gameSocket.on('playerRestart', playerRestart);
   gameSocket.on('makeMove', playerMakeMove);
+  gameSocket.on('playerInitialBoard', playerInitialBoard);
 };
 
 /* *******************************
@@ -73,7 +73,7 @@ function hostPrepareGame(gameId) {
 }
 
 /**
- * A player clicked the 'START GAME' button.
+ * A player clicked the 'Join Game' button.
  * Attempt to connect them to the room that matches
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
@@ -83,9 +83,6 @@ async function playerJoinGame(data) {
 
   // A reference to the player's Socket.IO socket object
   const sock = this;
-
-  //   Look up the room ID in the Socket.IO adapter rooms Set.
-  //   const isRoom = await io.of('/').adapter.allRooms().has(data.joinRoomId);
 
   const existingPlayers = await getPlayers(data.joinRoomId);
 
@@ -116,6 +113,42 @@ async function playerJoinGame(data) {
   }
 }
 
+async function playerInitialBoard({ playerName, myPositions, room }) {
+  // A reference to the player's Socket.IO socket object
+  const sock = this;
+
+  console.log('Positions follow');
+  console.log(myPositions);
+  let myGame = await getGame(room);
+  const playerIndex = myGame.players.indexOf(playerName);
+  if (myGame.board === null) {
+    let halfGameBoard;
+    if (playerIndex === 0) { // the host
+      console.log('Confirmed host');
+      halfGameBoard = myPositions;
+    } else if (playerIndex === 1) { // the guest
+      halfGameBoard = myPositions.reverse();
+    }
+    console.log('Awaiting updateBoard');
+    console.log('room');
+    console.log(room);
+    console.log('halfGameBoard');
+    console.log(halfGameBoard);
+    await updateBoard(room, halfGameBoard);
+    sock.emit('halfBoardReceived');
+  } else if (myGame.board.length === 6) { // only half of the board is filled
+    let completeGameBoard;
+    if (playerIndex === 0) { // the host
+      completeGameBoard = myGame.board.concat(myPositions);
+    } else if (playerIndex === 1) { // the guest
+      completeGameBoard = myPositions.reverse().concat(myGame.board);
+    }
+    await updateBoard(room, completeGameBoard);
+    myGame = await getGame(room);
+    io.sockets.in(room).emit('boardSet', myGame);
+  }
+}
+
 async function playerMakeMove(data) {
   if (await isPlayerTurn(data)) { // move validation function
     data.turn += 1;
@@ -125,18 +158,6 @@ async function playerMakeMove(data) {
   } else {
     this.emit('error', 'It is not your turn.');
   }
-}
-
-/**
- * A player has tapped a word in the word list.
- * @param data gameId
- */
-function playerAnswer(data) {
-  // console.log('Player ID: ' + data.playerId + ' answered a question with: ' + data.answer);
-
-  // The player's answer is attached to the data object.  \
-  // Emit an event with the answer so it can be checked by the 'Host'
-  io.sockets.in(data.gameId).emit('hostCheckAnswer', data);
 }
 
 /**
