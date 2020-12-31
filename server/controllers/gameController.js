@@ -16,7 +16,7 @@ const createGame = async ({
   game.players = [host];
   game.moves = [];
   game.turn = 0;
-  game.board = new Array(13).fill(null).map(() => (new Array(5).fill(null)));
+  game.board = null;
   let updatedGame = null;
   await game.save().then(() => {
     console.log(`Game ${room} saved in MongoDB`);
@@ -28,6 +28,14 @@ const createGame = async ({
   return updatedGame;
 };
 
+const getGame = async (room) => {
+  const myGame = await Game.find({ room });
+  if (myGame) {
+    return myGame[0];
+  }
+  throw Error('Game not found');
+};
+
 /**
  * adds a player to a Game in the database and returns the updated game or null
  * @param {Object} { room, playerName } the room ID and joining player name
@@ -37,22 +45,16 @@ const createGame = async ({
  */
 
 const addPlayer = async ({ room, playerName }) => {
-  try {
-    const myGame = await Game.find({ room });
-    if (myGame.length > 0) {
+  const myGame = await getGame(room);
+  if (myGame) {
     // assume only one result, take first one
-      const playerArray = myGame[0].players;
-      playerArray.push(playerName);
-      await Game.findOneAndUpdate({ room }, { ...myGame, players: playerArray });
-      const myUpdatedGame = await Game.find({ room });
-      return myUpdatedGame;
-    }
-    console.error('Game not found');
-    return null;
-  } catch (error) {
-    console.error(error);
-    return null;
+    const playerArray = myGame.players;
+    playerArray.push(playerName);
+    await Game.findOneAndUpdate({ room }, { ...myGame, players: playerArray });
+    const myUpdatedGame = await getGame(room);
+    return myUpdatedGame;
   }
+  throw Error('Game not found');
 };
 
 /**
@@ -62,9 +64,9 @@ const addPlayer = async ({ room, playerName }) => {
  * @see getPlayers
  */
 const getPlayers = async (room) => {
-  const myGame = await Game.find({ room });
+  const myGame = await getGame(room);
   if (myGame) {
-    return myGame[0].players;
+    return myGame.players;
   }
   throw Error;
 };
@@ -76,14 +78,18 @@ const getPlayers = async (room) => {
  * @see isPlayerTurn
  */
 const isPlayerTurn = async ({ playerName, gameId, turn }) => {
-  const myGame = await Game.find({ room: gameId });
+  const myGame = await getGame(gameId);
   /** assume the first matching game found is the only result, and that it is correct
    * assume that there are only two players, arrange by odd / even
    * */
-  const playerId = myGame[0].players.indexOf(playerName);
+  const playerId = myGame.players.indexOf(playerName);
   return turn % 2 === playerId;
 };
 
+const updateBoard = async (room, board) => {
+  await Game.findOneAndUpdate({ room }, { $set: { board } });
+};
+
 module.exports = {
-  createGame, addPlayer, getPlayers, isPlayerTurn,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard,
 };
