@@ -2,7 +2,7 @@
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
 const {
-  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame,
 } = require('./controllers/gameController');
 
 let io;
@@ -149,12 +149,58 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
   }
 }
 
-async function playerMakeMove(data) {
-  if (await isPlayerTurn(data)) { // move validation function
-    data.turn += 1;
-    console.log(`Someone made a move, the turn is now ${data.turn}`);
-    console.log(`Sending back gameState on ${data.gameId}`);
-    io.sockets.in(data.gameId).emit('playerMadeMove', data);
+// TODO: this is a utility function to determine which pieces die (if any) on movement
+const pieceMovement = (board, source, target) => {
+  const sourcePiece = board[source[0]][source[1]];
+  const targetPiece = board[target[0]][target[1]];
+
+  // there is no piece at the source tile
+  if (sourcePiece === null) {
+    return board;
+  }
+  // There is no piece at the target tile
+  if (targetPiece === null) {
+    // place source piece on target tile
+    board[target[0]][target[1]] = sourcePiece;
+    // remove source piece fom source tile
+    board[source[0]][source[1]] = null;
+  } else if (targetPiece.order < 0) { // special interaction, both pieces die
+    // remove source piece fom source tile
+    board[source[0]][source[1]] = null;
+    board[target[0]][target[1]] = null;
+  } else if (targetPiece.order < sourcePiece.order) { // source piece wins
+    board[target[0]][target[1]] = sourcePiece;
+    board[source[0]][source[1]] = null;
+  } else { // target piece wins
+    board[source[0]][source[1]] = null;
+  }
+  return board;
+};
+
+async function playerMakeMove({
+  playerName,
+  room,
+  turn,
+  pendingMove,
+}) {
+  // TODO: add move validation function
+  if (await isPlayerTurn({
+    playerName,
+    room,
+    turn,
+  })) {
+    turn += 1;
+    let myGame = await getGame(room);
+    const myBoard = myGame.board;
+    const { source, target } = pendingMove;
+    const newBoard = pieceMovement(myBoard, source, target);
+    await updateBoard(room, newBoard);
+    await updateGame(room, { turn });
+
+    myGame = await getGame(room);
+    console.log(`Someone made a move, the turn is now ${turn}`);
+    console.log(`Sending back gameState on ${room}`);
+    io.sockets.in(room).emit('playerMadeMove', myGame);
   } else {
     this.emit('error', 'It is not your turn.');
   }
