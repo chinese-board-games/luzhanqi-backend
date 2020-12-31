@@ -19,7 +19,7 @@ const debug = debugLib('your-project-name:server');
  * Get port from environment and store in Express.
  */
 
-app.set('port', process.env.PORT || 3000);
+// app.set('port', process.env.PORT || 3000);
 
 /**
  * Create HTTP server.
