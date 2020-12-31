@@ -78,8 +78,6 @@ const getPlayers = async (room) => {
  * @see isPlayerTurn
  */
 const isPlayerTurn = async ({ playerName, room, turn }) => {
-  console.log('INPUTS');
-  console.log(playerName, room, turn);
   const myGame = await getGame(room);
   /** assume the first matching game found is the only result, and that it is correct
    * assume that there are only two players, arrange by odd / even

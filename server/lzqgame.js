@@ -155,7 +155,7 @@ const pieceMovement = (board, source, target) => {
   const targetPiece = board[target[0]][target[1]];
 
   // there is no piece at the source tile
-  if (sourcePiece === null) {
+  if (sourcePiece === null || sourcePiece.name === 'landmine' || sourcePiece.name === 'flag') {
     return board;
   }
   // There is no piece at the target tile
@@ -164,10 +164,16 @@ const pieceMovement = (board, source, target) => {
     board[target[0]][target[1]] = sourcePiece;
     // remove source piece fom source tile
     board[source[0]][source[1]] = null;
-  } else if (targetPiece.order < 0) { // special interaction, both pieces die
-    // remove source piece fom source tile
-    board[source[0]][source[1]] = null;
-    board[target[0]][target[1]] = null;
+  } else if (targetPiece.order < 0 || sourcePiece.order < 0) { // special interaction, both pieces die
+    if (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine') {
+      // place source piece on target tile
+      board[target[0]][target[1]] = sourcePiece;
+      // remove source piece fom source tile
+      board[source[0]][source[1]] = null;
+    } else {
+      board[source[0]][source[1]] = null;
+      board[target[0]][target[1]] = null;
+    }
   } else if (targetPiece.order < sourcePiece.order) { // source piece wins
     board[target[0]][target[1]] = sourcePiece;
     board[source[0]][source[1]] = null;
