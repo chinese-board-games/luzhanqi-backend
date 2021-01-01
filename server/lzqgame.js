@@ -154,30 +154,27 @@ const pieceMovement = (board, source, target) => {
   const sourcePiece = board[source[0]][source[1]];
   const targetPiece = board[target[0]][target[1]];
 
-  // there is no piece at the source tile
+  // there is no piece at the source tile (not a valid move)
   if (sourcePiece === null || sourcePiece.name === 'landmine' || sourcePiece.name === 'flag') {
     return board;
   }
+
+  // pieces are of same affiliation
+  if (targetPiece && sourcePiece.affiliation === targetPiece.affiliation) {
+    return board;
+  }
+
   // There is no piece at the target tile
-  if (targetPiece === null) {
-    // place source piece on target tile
-    board[target[0]][target[1]] = sourcePiece;
-    // remove source piece fom source tile
+  if (targetPiece && (sourcePiece.name === 'bomb' || sourcePiece.name === targetPiece.name || targetPiece.name === 'bomb')) {
+    // remove both pieces
+    board[target[0]][target[1]] = null;
     board[source[0]][source[1]] = null;
-  } else if (targetPiece.order < 0 || sourcePiece.order < 0) { // special interaction, both pieces die
-    if (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine') {
-      // place source piece on target tile
-      board[target[0]][target[1]] = sourcePiece;
-      // remove source piece fom source tile
-      board[source[0]][source[1]] = null;
-    } else {
-      board[source[0]][source[1]] = null;
-      board[target[0]][target[1]] = null;
-    }
-  } else if (targetPiece.order < sourcePiece.order) { // source piece wins
+  } else if (targetPiece === null || sourcePiece.order > targetPiece.order || (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')) { // both pieces die
+    // place source piece on target tile, remove source piece from source tile
     board[target[0]][target[1]] = sourcePiece;
     board[source[0]][source[1]] = null;
-  } else { // target piece wins
+  } else {
+    // kill source piece only
     board[source[0]][source[1]] = null;
   }
   return board;
