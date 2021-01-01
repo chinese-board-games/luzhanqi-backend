@@ -164,8 +164,7 @@ const pieceMovement = (board, source, target) => {
     return board;
   }
 
-  // There is no piece at the target tile
-  if (targetPiece && (sourcePiece.name === 'bomb' || sourcePiece.name === targetPiece.name || targetPiece.name === 'bomb')) {
+  if (targetPiece && (sourcePiece.name === 'bomb' || sourcePiece.name === targetPiece.name || targetPiece.name === 'bomb' || (sourcePiece.name !== 'engineer' && targetPiece.name === 'landmine'))) {
     // remove both pieces
     board[target[0]][target[1]] = null;
     board[source[0]][source[1]] = null;
