@@ -77,8 +77,8 @@ const getPlayers = async (room) => {
  * @returns {boolean} indicates whether the player made a move during their turn
  * @see isPlayerTurn
  */
-const isPlayerTurn = async ({ playerName, gameId, turn }) => {
-  const myGame = await getGame(gameId);
+const isPlayerTurn = async ({ playerName, room, turn }) => {
+  const myGame = await getGame(room);
   /** assume the first matching game found is the only result, and that it is correct
    * assume that there are only two players, arrange by odd / even
    * */
@@ -90,6 +90,11 @@ const updateBoard = async (room, board) => {
   await Game.findOneAndUpdate({ room }, { $set: { board } });
 };
 
+const updateGame = async (room, updateFields) => {
+  console.log('UPDATING');
+  console.log(updateFields);
+  await Game.findOneAndUpdate({ room }, updateFields);
+};
 module.exports = {
-  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame,
 };
