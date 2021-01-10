@@ -91,10 +91,40 @@ const updateBoard = async (room, board) => {
 };
 
 const updateGame = async (room, updateFields) => {
-  console.log('UPDATING');
-  console.log(updateFields);
   await Game.findOneAndUpdate({ room }, updateFields);
 };
+
+const winner = async (room) => {
+  const myGame = await Game.findOne({ room });
+  const myBoard = await myGame.board;
+
+  let flags = 0;
+  for (let rowI = 0; rowI < myBoard.length; rowI += 1) {
+    const row = myBoard[rowI];
+    for (let colI = 0; colI < row.length; colI += 1) {
+      const piece = row[colI];
+      if (piece === null) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (piece.name === 'flag') {
+        flags += 1;
+      }
+      if (rowI > 0 && flags < 1) {
+        // top half loses
+        console.log('top half loses');
+        return 'host';
+      }
+    }
+  }
+  if (flags < 2) {
+    // bottom half loses
+    console.log('bottom half loses');
+    return 'guest';
+  }
+  return null;
+};
+
 module.exports = {
-  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame, winner,
 };

@@ -2,7 +2,7 @@
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */
 const {
-  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame,
+  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame, winner,
 } = require('./controllers/gameController');
 
 let io;
@@ -203,6 +203,10 @@ async function playerMakeMove({
     console.log(`Someone made a move, the turn is now ${turn}`);
     console.log(`Sending back gameState on ${room}`);
     io.sockets.in(room).emit('playerMadeMove', myGame);
+    const endGame = await winner(room);
+    if (endGame) {
+      io.sockets.in(room).emit('endGame', endGame);
+    }
   } else {
     this.emit('error', 'It is not your turn.');
   }
