@@ -29,9 +29,9 @@ const createGame = async ({
 };
 
 const getGame = async (room) => {
-  const myGame = await Game.find({ room });
+  const myGame = await Game.findOne({ room });
   if (myGame) {
-    return myGame[0];
+    return myGame;
   }
   throw Error('Game not found');
 };
