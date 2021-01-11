@@ -10,8 +10,8 @@ const express = require('express');
 dotenv.config();
 
 // DB Setup
-// const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
-const mongoURI = 'mongodb://localhost/luzhanqi';
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
+// const mongoURI = 'mongodb://localhost/luzhanqi';
 mongoose.connect(mongoURI, {
   useFindAndModify: false,
   useNewUrlParser: true,

@@ -204,7 +204,7 @@ async function playerMakeMove({
     console.log(`Sending back gameState on ${room}`);
     io.sockets.in(room).emit('playerMadeMove', myGame);
     const endGame = await winner(room);
-    if (endGame) {
+    if (endGame !== -1) {
       io.sockets.in(room).emit('endGame', endGame);
     }
   } else {

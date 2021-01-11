@@ -113,16 +113,16 @@ const winner = async (room) => {
       if (rowI > 0 && flags < 1) {
         // top half loses
         console.log('top half loses');
-        return 'host';
+        return 0;
       }
     }
   }
   if (flags < 2) {
     // bottom half loses
     console.log('bottom half loses');
-    return 'guest';
+    return 1;
   }
-  return null;
+  return -1;
 };
 
 module.exports = {
