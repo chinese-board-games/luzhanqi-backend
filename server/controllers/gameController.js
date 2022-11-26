@@ -7,33 +7,34 @@ const Game = require('../models/Game');
  * @see createGame
  */
 
-const createGame = async ({
-  room, host,
-}) => {
-  const game = await new Game();
-  game.room = room;
-  game.host = host;
-  game.players = [host];
-  game.moves = [];
-  game.turn = 0;
-  game.board = null;
-  let updatedGame = null;
-  await game.save().then(() => {
-    console.log(`Game ${room} saved in MongoDB`);
-    console.log(game);
-    updatedGame = game;
-  }).catch((err) => {
-    console.error(err);
-  });
-  return updatedGame;
+const createGame = async ({ room, host }) => {
+    const game = await new Game();
+    game.room = room;
+    game.host = host;
+    game.players = [host];
+    game.moves = [];
+    game.turn = 0;
+    game.board = null;
+    let updatedGame = null;
+    await game
+        .save()
+        .then(() => {
+            console.log(`Game ${room} saved in MongoDB`);
+            console.log(game);
+            updatedGame = game;
+        })
+        .catch((err) => {
+            console.error(err);
+        });
+    return updatedGame;
 };
 
 const getGame = async (room) => {
-  const myGame = await Game.find({ room });
-  if (myGame) {
-    return myGame[0];
-  }
-  throw Error('Game not found');
+    const myGame = await Game.find({ room });
+    if (myGame) {
+        return myGame[0];
+    }
+    throw Error('Game not found');
 };
 
 /**
@@ -45,16 +46,19 @@ const getGame = async (room) => {
  */
 
 const addPlayer = async ({ room, playerName }) => {
-  const myGame = await getGame(room);
-  if (myGame) {
-    // assume only one result, take first one
-    const playerArray = myGame.players;
-    playerArray.push(playerName);
-    await Game.findOneAndUpdate({ room }, { ...myGame, players: playerArray });
-    const myUpdatedGame = await getGame(room);
-    return myUpdatedGame;
-  }
-  throw Error('Game not found');
+    const myGame = await getGame(room);
+    if (myGame) {
+        // assume only one result, take first one
+        const playerArray = myGame.players;
+        playerArray.push(playerName);
+        await Game.findOneAndUpdate(
+            { room },
+            { ...myGame, players: playerArray },
+        );
+        const myUpdatedGame = await getGame(room);
+        return myUpdatedGame;
+    }
+    throw Error('Game not found');
 };
 
 /**
@@ -64,11 +68,11 @@ const addPlayer = async ({ room, playerName }) => {
  * @see getPlayers
  */
 const getPlayers = async (room) => {
-  const myGame = await getGame(room);
-  if (myGame) {
-    return myGame.players;
-  }
-  throw Error;
+    const myGame = await getGame(room);
+    if (myGame) {
+        return myGame.players;
+    }
+    throw Error;
 };
 
 /**
@@ -78,23 +82,29 @@ const getPlayers = async (room) => {
  * @see isPlayerTurn
  */
 const isPlayerTurn = async ({ playerName, room, turn }) => {
-  const myGame = await getGame(room);
-  /** assume the first matching game found is the only result, and that it is correct
-   * assume that there are only two players, arrange by odd / even
-   * */
-  const playerId = myGame.players.indexOf(playerName);
-  return turn % 2 === playerId;
+    const myGame = await getGame(room);
+    /** assume the first matching game found is the only result, and that it is correct
+     * assume that there are only two players, arrange by odd / even
+     * */
+    const playerId = myGame.players.indexOf(playerName);
+    return turn % 2 === playerId;
 };
 
 const updateBoard = async (room, board) => {
-  await Game.findOneAndUpdate({ room }, { $set: { board } });
+    await Game.findOneAndUpdate({ room }, { $set: { board } });
 };
 
 const updateGame = async (room, updateFields) => {
-  console.log('UPDATING');
-  console.log(updateFields);
-  await Game.findOneAndUpdate({ room }, updateFields);
+    console.log('UPDATING');
+    console.log(updateFields);
+    await Game.findOneAndUpdate({ room }, updateFields);
 };
 module.exports = {
-  createGame, addPlayer, getPlayers, isPlayerTurn, getGame, updateBoard, updateGame,
+    createGame,
+    addPlayer,
+    getPlayers,
+    isPlayerTurn,
+    getGame,
+    updateBoard,
+    updateGame,
 };

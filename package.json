@@ -1,51 +1,51 @@
 {
-  "name": "mahjong-backend",
-  "version": "0.0.0",
-  "private": true,
-  "nodemonConfig": {
-    "exec": "NODE_ENV=development npm run start",
-    "watch": [
-      "server/*",
-      "public/*"
-    ],
-    "ignore": [
-      "**/__tests__/**",
-      "*.test.js",
-      "*.spec.js"
-    ]
-  },
-  "scripts": {
-    "start": "node ./server/bin/www",
-    "dev": "nodemon",
-    "prod": "NODE_ENV=production npm run start"
-  },
-  "dependencies": {
-    "chai": "^4.2.0",
-    "cookie-parser": "~1.4.4",
-    "debug": "~2.6.9",
-    "dotenv": "^8.2.0",
-    "express": "^4.16.4",
-    "express-graphql": "^0.12.0",
-    "graphql": "^15.4.0",
-    "mongodb": "^3.6.3",
-    "mongoose": "^5.11.8",
-    "morgan": "~1.9.1",
-    "nodemon": "^2.0.6",
-    "npm-run-all": "^4.1.5",
-    "rimraf": "^3.0.2",
-    "socket.io": "^3.0.4",
-    "webpack": "^5.11.0"
-  },
-  "devDependencies": {
-    "eslint": "^7.2.0",
-    "eslint-config-airbnb": "^18.2.1",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jsx-a11y": "^6.4.1",
-    "eslint-plugin-react": "^7.21.5",
-    "eslint-plugin-react-hooks": "^4.0.0"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.2",
-    "utf-8-validate": "^5.0.3"
-  }
+    "name": "luzhanqi-backend",
+    "version": "0.0.0",
+    "private": true,
+    "nodemonConfig": {
+        "exec": "NODE_ENV=development npm run start",
+        "watch": [
+            "server/*",
+            "public/*"
+        ],
+        "ignore": [
+            "**/__tests__/**",
+            "*.test.js",
+            "*.spec.js"
+        ]
+    },
+    "scripts": {
+        "start": "node ./server/bin/www",
+        "dev": "nodemon",
+        "prod": "NODE_ENV=production npm run start"
+    },
+    "dependencies": {
+        "chai": "^4.2.0",
+        "cookie-parser": "~1.4.4",
+        "debug": "~2.6.9",
+        "dotenv": "^8.2.0",
+        "express": "^4.16.4",
+        "express-graphql": "^0.12.0",
+        "graphql": "^15.4.0",
+        "mongodb": "^3.6.3",
+        "mongoose": "^5.11.8",
+        "morgan": "~1.9.1",
+        "nodemon": "^2.0.6",
+        "npm-run-all": "^4.1.5",
+        "rimraf": "^3.0.2",
+        "socket.io": "^3.0.4",
+        "webpack": "^5.11.0"
+    },
+    "devDependencies": {
+        "eslint": "^7.2.0",
+        "eslint-config-airbnb": "^18.2.1",
+        "eslint-plugin-import": "^2.22.1",
+        "eslint-plugin-jsx-a11y": "^6.4.1",
+        "eslint-plugin-react": "^7.21.5",
+        "eslint-plugin-react-hooks": "^4.0.0"
+    },
+    "optionalDependencies": {
+        "bufferutil": "^4.0.2",
+        "utf-8-validate": "^5.0.3"
+    }
 }
