@@ -1,6 +1,14 @@
 {
-    "extends": ["airbnb", "prettier"],
+    "extends": ["eslint:recommended", "prettier"],
     "rules": {
-        "no-param-reassign": 0
+        "no-param-reassign": 0,
+        "no-unused-vars": "warn"
+    },
+    "parserOptions": {
+        "ecmaVersion": "latest"
+    },
+    "env": {
+        "es6": true,
+        "node": true
     }
 }
