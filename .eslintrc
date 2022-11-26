@@ -1,6 +1,6 @@
 {
-  "extends": "airbnb",
-  "rules": {
-    "no-param-reassign": 0
-  }
+    "extends": ["airbnb", "prettier"],
+    "rules": {
+        "no-param-reassign": 0
+    }
 }
