@@ -10,6 +10,7 @@ const {
     updateBoard,
     updateGame,
 } = require('./controllers/gameController');
+const { isEqual, cloneDeep } = require('lodash');
 
 let io;
 let gameSocket;
@@ -173,7 +174,14 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
 }
 
 // TODO: this is a utility function to determine which pieces die (if any) on movement
+// returns a new board
 const pieceMovement = (board, source, target) => {
+    // copy the board
+    board = cloneDeep(board);
+
+    if (!source.length || !target.length) {
+        return board;
+    }
     const sourcePiece = board[source[0]][source[1]];
     const targetPiece = board[target[0]][target[1]];
 
@@ -227,18 +235,24 @@ async function playerMakeMove({ playerName, room, turn, pendingMove }) {
             turn,
         })
     ) {
-        turn += 1;
         let myGame = await getGame(room);
         const myBoard = myGame.board;
         const { source, target } = pendingMove;
         const newBoard = pieceMovement(myBoard, source, target);
-        await updateBoard(room, newBoard);
-        await updateGame(room, { turn });
+        console.log('newBoard', newBoard);
+        console.log('myBoard', myBoard);
+        if (isEqual(newBoard, myBoard)) {
+            this.emit('error', 'No move made.');
+        } else {
+            turn += 1;
+            await updateBoard(room, newBoard);
+            await updateGame(room, { turn });
 
-        myGame = await getGame(room);
-        console.log(`Someone made a move, the turn is now ${turn}`);
-        console.log(`Sending back gameState on ${room}`);
-        io.sockets.in(room).emit('playerMadeMove', myGame);
+            myGame = await getGame(room);
+            console.log(`Someone made a move, the turn is now ${turn}`);
+            console.log(`Sending back gameState on ${room}`);
+            io.sockets.in(room).emit('playerMadeMove', myGame);
+        }
     } else {
         this.emit('error', 'It is not your turn.');
     }
