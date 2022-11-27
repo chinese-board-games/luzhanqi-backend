@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-this-alias */
 /* eslint-disable no-console */
 /* eslint-disable func-names */
 /* eslint-disable no-use-before-define */

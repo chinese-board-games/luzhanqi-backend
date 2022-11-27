@@ -1,5 +1,5 @@
 /** An object containing basic game information for each piece type. */
-export const pieces = {
+export const pieces: Record<string, { count: number, order: number}> = {
     bomb: { count: 2, order: -1 },
     brigadier_general: { count: 2, order: 6 },
     captain: { count: 3, order: 3 },
@@ -14,25 +14,22 @@ export const pieces = {
     major: { count: 2, order: 4 },
 };
 
-/**
- * The complete type of a game piece.
- *
- * @typedef {Object} Piece
- * @property {string} name
- * @property {number} affiliation
- * @property {number} order
- * @property {number} kills
- */
+export interface Piece {
+    name: string
+    affiliation: number
+    order: number
+    kills: number
+}
 
 /**
  * Initializes and returns a new piece object.
  *
  * @function
- * @param {string} name The name of the piece, should be a key in pieces object.
- * @param {number} affiliation 0 for host, increments by 1 for additional players.
- * @returns {Piece} A new Piece object.
+ * @param  name The name of the piece, should be a key in pieces object.
+ * @param  affiliation 0 for host, increments by 1 for additional players.
+ * @returns A new Piece object.
  */
-export const Piece = (name, affiliation) => {
+export const createPiece = (name: string, affiliation: number): Piece => {
     if (!pieces[name]) {
         throw Error('Invalid piece name provided');
     }
@@ -43,5 +40,3 @@ export const Piece = (name, affiliation) => {
         kills: 0,
     };
 };
-
-export default { pieces, Piece };

@@ -1,6 +1,5 @@
-const { validate } = require('graphql');
+/* eslint-disable @typescript-eslint/no-var-requires */
 const Board = require('../models/Board');
-const sampleBoard = require('./sampleBoard');
 
 // the player will call this to start a new game
 const generateEmptyBoard = () => {
