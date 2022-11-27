@@ -179,7 +179,3 @@ ehthumbs_vista.db
 .eslintcache
 
 # End of https://www.toptal.com/developers/gitignore/api/node,macos,vscode,windows
-
-
-# TODO: remove when migrate to TS
-server/utils/
