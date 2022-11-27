@@ -1,15 +1,17 @@
 import { isCamp } from './core';
+import { Piece } from './piece';
+import { Board } from './board';
 
 /**
  * Checks validity of row index
  *
  * @function
- * @param {Number} r The row index of a coordinate pair.
+ * @param r The row index of a coordinate pair.
  * @see isValidRow
- * @returns {boolean} Whether the row index is within board bounds.
+ * @returns Whether the row index is within board bounds.
  */
 
-export const isValidRow = (r) => r >= 0 && r < 12;
+export const isValidRow = (r: number): boolean => r >= 0 && r < 12;
 
 /**
  * Checks validity of column index
@@ -20,23 +22,7 @@ export const isValidRow = (r) => r >= 0 && r < 12;
  * @returns {boolean} Whether the column index is within board bounds.
  */
 
-export const isValidCol = (c) => c >= 0 && c < 5;
-
-/**
- * The complete type of a game piece.
- *
- * @typedef {Object} Piece
- * @property {string} name
- * @property {number} affiliation
- * @property {number} order
- * @property {number} kills
- */
-
-/**
- * The complete type of the game board. A 12 by 5 two dimensional array of Piece objects.
- *
- * @typedef {Piece[][]} Board
- */
+export const isValidCol = (c: number): boolean => c >= 0 && c < 5;
 
 /**
  * Checks validity of coordinate pair as piece destination
@@ -49,10 +35,15 @@ export const isValidCol = (c) => c >= 0 && c < 5;
  * @see isValidDestination
  * @returns {boolean} Whether the target destination is valid.
  */
-export const isValidDestination = (board, r, c, affiliation) =>
+export const isValidDestination = (
+    board: Board,
+    r: number,
+    c: number,
+    affiliation: number,
+): boolean =>
     isValidRow(r) &&
     isValidCol(c) &&
-    (board[r][c] == null || board[r][c].affiliation !== affiliation);
+    (board[r][c] == null || board[r][c]?.affiliation !== affiliation);
 
 /**
  * Checks whether the space is a railroad tile.
@@ -63,7 +54,7 @@ export const isValidDestination = (board, r, c, affiliation) =>
  * @returns {boolean} Whether the space is a railroad tile.
  */
 
-export const isRailroad = (r, c) => {
+export const isRailroad = (r: number, c: number): boolean => {
     if (!isValidRow(r) || !isValidCol(c)) {
         return false;
     }
@@ -78,6 +69,7 @@ export const isRailroad = (r, c) => {
  *
  * @typedef {Map<string, string[]>} Adjlist
  */
+type Adjlist = Map<string, string[]>;
 
 /**
  * Gets a list of possible positions the piece at a given coordinate pair can travel to.
@@ -93,7 +85,13 @@ export const isRailroad = (r, c) => {
  *   row/col is out of bounds.
  * @returns {Array} List of positions that the piece may travel to during its turn.
  */
-export function getSuccessors(board, adjList, r, c, affiliation) {
+export function getSuccessors(
+    board: Board,
+    adjList: Adjlist,
+    r: number,
+    c: number,
+    affiliation: number,
+): Array<any> {
     // validate the board
     if (board.length !== 12) {
         throw 'Invalid number of rows in board';
@@ -115,12 +113,12 @@ export function getSuccessors(board, adjList, r, c, affiliation) {
     const piece = board[r][c];
 
     // get the piece type
-    if (piece == null || piece === 'landmine' || piece === 'flag') {
+    if (piece == null || piece.name === 'landmine' || piece.name === 'flag') {
         return [];
     }
 
     const railroadMoves = new Set();
-    if (piece === 'engineer') {
+    if (piece.name === 'engineer') {
         if (isRailroad(r, c)) {
             // perform dfs to find availible moves
             const stack = [[r, c]];
@@ -133,7 +131,8 @@ export function getSuccessors(board, adjList, r, c, affiliation) {
             ];
 
             while (stack) {
-                let [curRow, curCol] = stack.pop();
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const [curRow, curCol] = stack.pop()!;
 
                 visited.add([curRow, curCol]);
 
@@ -142,8 +141,8 @@ export function getSuccessors(board, adjList, r, c, affiliation) {
                     if (!(curRow === r && curCol === c)) {
                         railroadMoves.add(JSON.stringify([curRow, curCol]));
                     }
-                    directions.forEach((incRow, incCol) => {
-                        const neighbor = [curRow + incRow, curCol, incCol];
+                    directions.forEach(([incRow, incCol]) => {
+                        const neighbor = [curRow + incRow, curCol + incCol];
                         if (!visited.has(neighbor)) {
                             stack.push(neighbor);
                         }
@@ -172,8 +171,9 @@ export function getSuccessors(board, adjList, r, c, affiliation) {
     }
     const jsonMoves = new Set([
         ...railroadMoves,
-        ...adjList.get(JSON.stringify([r, c])),
-    ]);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        ...adjList.get(JSON.stringify([r, c]))!,
+    ]) as Set<string>;
     return [...jsonMoves].map((m) => JSON.parse(m));
 }
 
@@ -187,7 +187,7 @@ export function getSuccessors(board, adjList, r, c, affiliation) {
  * @returns {Map<string, string[]>} Keys are JSON.stringified coordinate array
  *   keys and values are arrays of JSON.stringified coordinates.
  */
-export const generateAdjList = () => {
+export const generateAdjList = (): Map<string, string[]> => {
     // note that the coordinates are stored in a JSON format
     const adjList = new Map();
     for (let originR = 0; originR < 12; originR++) {
@@ -211,7 +211,7 @@ export const generateAdjList = () => {
                         [1, -1],
                         [-1, 1],
                         [1, 1],
-                    ]
+                    ],
                 );
             }
 
@@ -225,7 +225,7 @@ export const generateAdjList = () => {
                         if (!adjList.has(JSON.stringify([destR, destC]))) {
                             adjList.set(
                                 JSON.stringify([destR, destC]),
-                                new Set()
+                                new Set(),
                             );
                         }
                         adjList
@@ -250,15 +250,20 @@ export const generateAdjList = () => {
  * @param {Board} board The Board object as defined in the backend Schema.
  * @param {number} r The row of the target coordinate pair.
  * @param {number} c The column of the target coordinate pair.
- * @param {any} piece A Piece object as defined in Piece.js.
+ * @param {Piece} piece A Piece object as defined in Piece.js.
  * @see placePiece
  * @returns {Board} A new board with the placed piece.
  */
-export const placePiece = (board, r, c, piece) => {
+export const placePiece = (
+    board: Board,
+    r: number,
+    c: number,
+    piece: Piece,
+): Board => {
     if (!isValidRow(r) || !isValidCol(c)) {
         throw 'Invalid position passed';
     }
     return board.map((row, i) =>
-        row.map((cell, j) => (i === r && j === c ? piece : cell))
+        row.map((cell, j) => (i === r && j === c ? piece : cell)),
     );
 };

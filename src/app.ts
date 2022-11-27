@@ -1,9 +1,9 @@
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const logger = require('morgan');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const express = require('express');
+import path from 'path';
+import cookieParser from 'cookie-parser';
+import logger from 'morgan';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import express from 'express';
 
 dotenv.config();
 
@@ -25,4 +25,4 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
-module.exports = app;
+export default app;

@@ -1,5 +1,6 @@
-const { pieces } = require('./piece');
-const { isHQ, isCamp, iterBoard } = require('./core');
+import { Board } from './board';
+import { pieces, Piece } from './piece';
+import { isHQ, isCamp, iterBoard } from './core';
 
 /**
  * The complete type of a game piece.
@@ -21,7 +22,7 @@ const { isHQ, isCamp, iterBoard } = require('./core');
  * @see validateSetup
  * @returns {boolean} Whether the half board is valid or not.
  */
-export function validateSetup(halfBoard, isBottomHalf = true) {
+export function validateSetup(halfBoard: Piece[][], isBottomHalf = true): boolean {
     // flip the board of neccessary
     if (!isBottomHalf) {
         halfBoard = [...halfBoard].reverse();
@@ -38,8 +39,8 @@ export function validateSetup(halfBoard, isBottomHalf = true) {
         }
     }
 
-    const pieceCount = (name) => {
-        return halfBoard.filter((p) => p.name === name).length;
+    const pieceCount = (name: string) => {
+        return halfBoard.flat().filter((p: Piece) => p.name === name).length;
     };
 
     // validate piece counts
@@ -79,4 +80,6 @@ export function validateSetup(halfBoard, isBottomHalf = true) {
             return false;
         }
     });
+
+    return true;
 }
