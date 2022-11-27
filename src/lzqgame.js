@@ -1,23 +1,20 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-this-alias */
-/* eslint-disable no-console */
-/* eslint-disable func-names */
-/* eslint-disable no-use-before-define */
-const {
+import {
     createGame,
     addPlayer,
     getPlayers,
     isPlayerTurn,
+    getMoveHistory,
     getGame,
     updateBoard,
     updateGame,
-} = require('./controllers/gameController');
-const { isEqual, cloneDeep } = require('lodash');
+} from './controllers/gameController';
+import { isEqual, cloneDeep } from 'lodash';
 
 let io;
 let gameSocket;
 
-exports.initGame = function (sio, socket) {
+export const initGame = (sio, socket) => {
     io = sio;
     gameSocket = socket;
     gameSocket.emit('connected', { message: 'You are connected!' });
@@ -50,7 +47,6 @@ async function hostCreateNewGame({ playerName }) {
         room: thisGameId,
         host: playerName,
     });
-    console.log(myGame);
     if (myGame) {
         this.emit('newGameCreated', {
             gameId: thisGameId,
@@ -138,8 +134,6 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
     // A reference to the player's Socket.IO socket object
     const sock = this;
 
-    console.log('Positions follow');
-    console.log(myPositions);
     let myGame = await getGame(room);
     const playerIndex = myGame.players.indexOf(playerName);
     if (myGame.board === null) {
@@ -152,11 +146,6 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
             // the guest
             halfGameBoard = myPositions.reverse();
         }
-        console.log('Awaiting updateBoard');
-        console.log('room');
-        console.log(room);
-        console.log('halfGameBoard');
-        console.log(halfGameBoard);
         await updateBoard(room, halfGameBoard);
         sock.emit('halfBoardReceived');
     } else if (myGame.board.length === 6) {
@@ -241,15 +230,16 @@ async function playerMakeMove({ playerName, room, turn, pendingMove }) {
         const myBoard = myGame.board;
         const { source, target } = pendingMove;
         const newBoard = pieceMovement(myBoard, source, target);
-        console.log('newBoard', newBoard);
-        console.log('myBoard', myBoard);
         if (isEqual(newBoard, myBoard)) {
             this.emit('error', 'No move made.');
         } else {
             turn += 1;
             await updateBoard(room, newBoard);
-            await updateGame(room, { turn });
-
+            const moveHistory = await getMoveHistory(room);
+            await updateGame(room, {
+                turn,
+                moves: [...moveHistory, pendingMove],
+            });
             myGame = await getGame(room);
             console.log(`Someone made a move, the turn is now ${turn}`);
             console.log(`Sending back gameState on ${room}`);
@@ -265,8 +255,6 @@ async function playerMakeMove({ playerName, room, turn, pendingMove }) {
  * @param data
  */
 function playerRestart(data) {
-    // console.log('Player: ' + data.playerName + ' ready for new game.');
-
     // Emit the player's data back to the clients in the game room.
     data.playerId = this.id;
     io.sockets.in(data.gameId).emit('playerJoinedRoom', data);

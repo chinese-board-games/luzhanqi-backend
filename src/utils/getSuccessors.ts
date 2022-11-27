@@ -238,8 +238,6 @@ export const generateAdjList = (): Map<string, string[]> => {
             adjList.set(JSON.stringify([originR, originC]), connections);
         }
     }
-
-    // console.log(Object.fromEntries(adjList));
     return adjList;
 };
 

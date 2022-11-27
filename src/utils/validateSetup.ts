@@ -22,8 +22,11 @@ import { isHQ, isCamp, iterBoard } from './core';
  * @see validateSetup
  * @returns {boolean} Whether the half board is valid or not.
  */
-export function validateSetup(halfBoard: Piece[][], isBottomHalf = true): boolean {
-    // flip the board of neccessary
+export function validateSetup(
+    halfBoard: Piece[][],
+    isBottomHalf = true,
+): boolean {
+    // flip the board if neccessary
     if (!isBottomHalf) {
         halfBoard = [...halfBoard].reverse();
     }

@@ -1,15 +1,12 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mongoose = require('mongoose');
+// import { Schema, model as Model } from 'mongoose';
 
-const { Schema } = mongoose;
+// const PieceSchema = new Schema({
+//     name: String,
+//     affiliation: String,
+//     order: Number,
+//     kills: Number,
+// });
 
-const PieceSchema = new Schema({
-    name: String,
-    affiliation: String,
-    order: Number,
-    kills: Number,
-});
+// const PieceModel = Model('Game', PieceSchema);
 
-const PieceModel = mongoose.model('Game', PieceSchema);
-
-module.exports = PieceModel;
+// module.exports = PieceModel;
