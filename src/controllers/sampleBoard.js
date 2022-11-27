@@ -1,8 +1,8 @@
-const sampleBoard = {
-    name: 'sample',
-    positions: [],
-    playerOnePositions: [],
-    playerTwoPositions: [],
-};
+// const sampleBoard = {
+//     name: 'sample',
+//     positions: [],
+//     playerOnePositions: [],
+//     playerTwoPositions: [],
+// };
 
-module.exports = sampleBoard;
+// module.exports = sampleBoard;

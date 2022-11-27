@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Game = require('../models/Game');
+import Game from '../models/Game';
 
 /**
  * creates a Game in the database and returns
@@ -8,7 +7,13 @@ const Game = require('../models/Game');
  * @see createGame
  */
 
-const createGame = async ({ room, host }) => {
+export const createGame = async ({
+    room,
+    host,
+}: {
+    room: string;
+    host: string;
+}) => {
     const game = await new Game();
     game.room = room;
     game.host = host;
@@ -21,7 +26,6 @@ const createGame = async ({ room, host }) => {
         .save()
         .then(() => {
             console.log(`Game ${room} saved in MongoDB`);
-            console.log(game);
             updatedGame = game;
         })
         .catch((err) => {
@@ -30,7 +34,7 @@ const createGame = async ({ room, host }) => {
     return updatedGame;
 };
 
-const getGame = async (room) => {
+export const getGame = async (room: string) => {
     const myGame = await Game.find({ room });
     if (myGame) {
         return myGame[0];
@@ -46,7 +50,13 @@ const getGame = async (room) => {
  * @see addPlayer
  */
 
-const addPlayer = async ({ room, playerName }) => {
+export const addPlayer = async ({
+    room,
+    playerName,
+}: {
+    room: string;
+    playerName: string;
+}) => {
     const myGame = await getGame(room);
     if (myGame) {
         // assume only one result, take first one
@@ -68,10 +78,18 @@ const addPlayer = async ({ room, playerName }) => {
  * @returns {Array<Object>} an array of objects with {int: playerName}
  * @see getPlayers
  */
-const getPlayers = async (room) => {
+export const getPlayers = async (room: string) => {
     const myGame = await getGame(room);
     if (myGame) {
         return myGame.players;
+    }
+    throw Error;
+};
+
+export const getMoveHistory = async (room: string) => {
+    const myGame = await getGame(room);
+    if (myGame) {
+        return myGame.moves;
     }
     throw Error;
 };
@@ -82,7 +100,15 @@ const getPlayers = async (room) => {
  * @returns {boolean} indicates whether the player made a move during their turn
  * @see isPlayerTurn
  */
-const isPlayerTurn = async ({ playerName, room, turn }) => {
+export const isPlayerTurn = async ({
+    playerName,
+    room,
+    turn,
+}: {
+    playerName: string;
+    room: string;
+    turn: number;
+}) => {
     const myGame = await getGame(room);
     /** assume the first matching game found is the only result, and that it is correct
      * assume that there are only two players, arrange by odd / even
@@ -91,21 +117,13 @@ const isPlayerTurn = async ({ playerName, room, turn }) => {
     return turn % 2 === playerId;
 };
 
-const updateBoard = async (room, board) => {
+export const updateBoard = async (room: string, board: any) => {
     await Game.findOneAndUpdate({ room }, { $set: { board } });
 };
 
-const updateGame = async (room, updateFields) => {
-    console.log('UPDATING');
-    console.log(updateFields);
+export const updateGame = async (
+    room: string,
+    updateFields: Record<string, unknown>,
+) => {
     await Game.findOneAndUpdate({ room }, updateFields);
-};
-module.exports = {
-    createGame,
-    addPlayer,
-    getPlayers,
-    isPlayerTurn,
-    getGame,
-    updateBoard,
-    updateGame,
 };
