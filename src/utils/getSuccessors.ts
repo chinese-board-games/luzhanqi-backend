@@ -92,6 +92,10 @@ export function getSuccessors(
     c: number,
     affiliation: number,
 ): Array<any> {
+    console.log(
+        'getSuccessors called with r = ' + r + ' and c = ' + c,
+        'affiliation = ' + affiliation,
+    );
     // validate the board
     if (board.length !== 12) {
         throw 'Invalid number of rows in board';
@@ -111,6 +115,7 @@ export function getSuccessors(
     }
 
     const piece = board[r][c];
+    console.log('piece', piece);
 
     // get the piece type
     if (piece == null || piece.name === 'landmine' || piece.name === 'flag') {
@@ -119,7 +124,9 @@ export function getSuccessors(
 
     const railroadMoves = new Set();
     if (piece.name === 'engineer') {
+        console.log('engineer');
         if (isRailroad(r, c)) {
+            console.log("it's a railroad");
             // perform dfs to find availible moves
             const stack = [[r, c]];
             const visited = new Set();
@@ -151,6 +158,7 @@ export function getSuccessors(
             }
         }
     } else if (isRailroad(r, c)) {
+        console.log('it is a railroad 2');
         const directions = [
             [-1, 0],
             [0, -1],
@@ -162,18 +170,26 @@ export function getSuccessors(
 
             let curRow = r + incRow;
             let curCol = c + incCol;
+            console.log('board', board);
             while (isValidDestination(board, curRow, curCol, affiliation)) {
                 railroadMoves.add(JSON.stringify([curRow, curCol]));
+                if (isOccupied(board, curRow, curCol)) {
+                    break;
+                }
                 curRow += incRow;
                 curCol += incCol;
             }
         });
     }
+    console.log('before json moves', railroadMoves);
     const jsonMoves = new Set([
         ...railroadMoves,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         ...adjList.get(JSON.stringify([r, c]))!,
     ]) as Set<string>;
+    console.log('jsonMoves', jsonMoves);
+    console.log('adjListMoves', adjList.get(JSON.stringify([r, c]))!);
+    console.log('adjList', adjList);
     return [...jsonMoves].map((m) => JSON.parse(m));
 }
 
@@ -264,4 +280,11 @@ export const placePiece = (
     return board.map((row, i) =>
         row.map((cell, j) => (i === r && j === c ? piece : cell)),
     );
+};
+
+const isOccupied = (board: Board, r: number, c: number): boolean => {
+    if (!isValidRow(r) || !isValidCol(c)) {
+        return false;
+    }
+    return board[r][c] !== null;
 };

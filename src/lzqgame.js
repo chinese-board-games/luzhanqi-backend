@@ -10,9 +10,11 @@ import {
     updateGame,
 } from './controllers/gameController';
 import { isEqual, cloneDeep } from 'lodash';
+import { generateAdjList, getSuccessors } from './utils';
 
 let io;
 let gameSocket;
+const adjacencyList = generateAdjList();
 
 export const initGame = (sio, socket) => {
     io = sio;
@@ -28,6 +30,9 @@ export const initGame = (sio, socket) => {
     gameSocket.on('playerRestart', playerRestart);
     gameSocket.on('makeMove', playerMakeMove);
     gameSocket.on('playerInitialBoard', playerInitialBoard);
+
+    // Utility Events
+    gameSocket.on('pieceSelection', pieceSelection);
 };
 
 /* *******************************
@@ -163,6 +168,19 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
         io.sockets.in(room).emit('boardSet', myGame);
     }
 }
+
+const pieceSelection = async ({ board, piece, playerName, room }) => {
+    let myGame = await getGame(room);
+    const playerIndex = myGame.players.indexOf(playerName);
+    const successors = getSuccessors(
+        board,
+        adjacencyList,
+        piece[0],
+        piece[1],
+        playerIndex,
+    );
+    io.sockets.in(room).emit('pieceSelected', successors);
+};
 
 // TODO: this is a utility function to determine which pieces die (if any) on movement
 // returns a new board
