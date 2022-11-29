@@ -8,6 +8,7 @@ import {
     getGame,
     updateBoard,
     updateGame,
+    winner,
 } from './controllers/gameController';
 import { isEqual, cloneDeep } from 'lodash';
 import { generateAdjList, getSuccessors } from './utils';
@@ -47,23 +48,24 @@ export const initGame = (sio, socket) => {
 async function hostCreateNewGame({ playerName }) {
     // Create a unique Socket.IO Room
     // eslint-disable-next-line no-bitwise
+    const sock = this;
     const thisGameId = ((Math.random() * 100000) | 0).toString();
     const myGame = await createGame({
         room: thisGameId,
         host: playerName,
     });
     if (myGame) {
-        this.emit('newGameCreated', {
+        sock.emit('newGameCreated', {
             gameId: thisGameId,
             mySocketId: this.id,
             players: await getPlayers(thisGameId),
         });
         console.log(
-            `New game created with ID: ${thisGameId} at socket: ${this.id}`,
+            `New game created with ID: ${thisGameId} at socket: ${sock.id}`,
         );
 
         // Join the Room and wait for the players
-        this.join(thisGameId);
+        sock.join(thisGameId);
     } else {
         console.error('Game was not created.');
     }
@@ -169,7 +171,8 @@ async function playerInitialBoard({ playerName, myPositions, room }) {
     }
 }
 
-const pieceSelection = async ({ board, piece, playerName, room }) => {
+async function pieceSelection({ board, piece, playerName, room }) {
+    const sock = this;
     let myGame = await getGame(room);
     const playerIndex = myGame.players.indexOf(playerName);
     const successors = getSuccessors(
@@ -179,8 +182,8 @@ const pieceSelection = async ({ board, piece, playerName, room }) => {
         piece[1],
         playerIndex,
     );
-    io.sockets.in(room).emit('pieceSelected', successors);
-};
+    sock.emit('pieceSelected', successors);
+}
 
 // TODO: this is a utility function to determine which pieces die (if any) on movement
 // returns a new board
@@ -262,6 +265,10 @@ async function playerMakeMove({ playerName, room, turn, pendingMove }) {
             console.log(`Someone made a move, the turn is now ${turn}`);
             console.log(`Sending back gameState on ${room}`);
             io.sockets.in(room).emit('playerMadeMove', myGame);
+            const endGame = await winner(room);
+            if (endGame !== -1) {
+                io.sockets.in(room).emit('endGame', endGame);
+            }
         }
     } else {
         this.emit('error', 'It is not your turn.');
