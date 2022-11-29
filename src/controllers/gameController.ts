@@ -35,9 +35,9 @@ export const createGame = async ({
 };
 
 export const getGame = async (room: string) => {
-    const myGame = await Game.find({ room });
+    const myGame = await Game.findOne({ room });
     if (myGame) {
-        return myGame[0];
+        return myGame;
     }
     throw Error('Game not found');
 };
@@ -126,4 +126,38 @@ export const updateGame = async (
     updateFields: Record<string, unknown>,
 ) => {
     await Game.findOneAndUpdate({ room }, updateFields);
+};
+
+export const winner = async (room: any) => {
+    const myGame = await Game.findOne({ room });
+    if (!myGame) {
+        return -1;
+    }
+    const myBoard = (await myGame.board) as any;
+
+    let flags = 0;
+    for (let rowI = 0; rowI < myBoard.length; rowI += 1) {
+        const row = myBoard[rowI];
+        for (let colI = 0; colI < row.length; colI += 1) {
+            const piece = row[colI];
+            if (piece === null) {
+                // eslint-disable-next-line no-continue
+                continue;
+            }
+            if (piece.name === 'flag') {
+                flags += 1;
+            }
+            if (rowI > 0 && flags < 1) {
+                // top half loses
+                console.log('top half loses');
+                return 0;
+            }
+        }
+    }
+    if (flags < 2) {
+        // bottom half loses
+        console.log('bottom half loses');
+        return 1;
+    }
+    return -1;
 };
