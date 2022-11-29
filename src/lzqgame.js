@@ -8,6 +8,7 @@ import {
     getGame,
     updateBoard,
     updateGame,
+    winner,
 } from './controllers/gameController';
 import { isEqual, cloneDeep } from 'lodash';
 import { generateAdjList, getSuccessors } from './utils';
@@ -264,6 +265,10 @@ async function playerMakeMove({ playerName, room, turn, pendingMove }) {
             console.log(`Someone made a move, the turn is now ${turn}`);
             console.log(`Sending back gameState on ${room}`);
             io.sockets.in(room).emit('playerMadeMove', myGame);
+            const endGame = await winner(room);
+            if (endGame !== -1) {
+                io.sockets.in(room).emit('endGame', endGame);
+            }
         }
     } else {
         this.emit('error', 'It is not your turn.');
