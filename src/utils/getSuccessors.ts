@@ -40,10 +40,23 @@ export const isValidDestination = (
     r: number,
     c: number,
     affiliation: number,
-): boolean =>
-    isValidRow(r) &&
-    isValidCol(c) &&
-    (board[r][c] == null || board[r][c]?.affiliation !== affiliation);
+): boolean => {
+    if (!isValidRow(r) || !isValidCol(c)) {
+        return false;
+    }
+
+    // you can't move into an occupied camp
+    if (isCamp(r, c) && board[r][c] != null) {
+        return false;
+    }
+
+    // you can't attack your own't troops
+    if (board[r][c] != null && board[r][c]?.affiliation === affiliation) {
+        return false;
+    }
+    
+    return true;
+};
 
 /**
  * Checks whether the space is a railroad tile.
