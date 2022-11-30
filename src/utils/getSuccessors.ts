@@ -40,11 +40,10 @@ export const isValidDestination = (
     r: number,
     c: number,
     affiliation: number,
-): boolean => (
+): boolean =>
     isValidRow(r) &&
     isValidCol(c) &&
-    (board[r][c] == null || board[r][c]?.affiliation !== affiliation)
-);
+    (board[r][c] == null || board[r][c]?.affiliation !== affiliation);
 
 /**
  * Checks whether the space is a railroad tile.
@@ -71,6 +70,94 @@ export const isRailroad = (r: number, c: number): boolean => {
  * @typedef {Map<string, string[]>} Adjlist
  */
 type Adjlist = Map<string, string[]>;
+
+function _getEngineerRailroadMoves(
+    board: Board,
+    adjList: Adjlist,
+    r: number,
+    c: number,
+    affiliation: number,
+): Set<string> {
+    const railroadMoves: Set<string> = new Set();
+    // perform dfs to find availible moves
+    const stack = [[r, c]];
+    const visited = new Set(JSON.stringify([r, c]));
+    const directions = [
+        [-1, 0],
+        [0, -1],
+        [1, 0],
+        [0, 1],
+    ];
+
+    while (stack.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const [curRow, curCol] = stack.pop()!;
+
+        // don't add the first location
+        if (!(curRow === r && curCol === c)) {
+            railroadMoves.add(JSON.stringify([curRow, curCol]));
+            if (isOccupied(board, curRow, curCol)) {
+                continue;
+            }
+        }
+
+        // do not explore neighbors of occupied locations
+
+        // explore neighbors if current loc is unoccupied
+        directions.forEach(([incRow, incCol]) => {
+            const neighbor = [curRow + incRow, curCol + incCol];
+            if (
+                !visited.has(JSON.stringify(neighbor)) &&
+                isValidDestination(
+                    board,
+                    neighbor[0],
+                    neighbor[1],
+                    affiliation,
+                ) &&
+                isRailroad(neighbor[0], neighbor[1])
+            ) {
+                visited.add(JSON.stringify(neighbor));
+                stack.push(neighbor);
+            }
+        });
+    }
+
+    return railroadMoves;
+}
+
+function _getNormalRailroadMoves(
+    board: Board,
+    adjList: Adjlist,
+    r: number,
+    c: number,
+    affiliation: number,
+): Set<string> {
+    const railroadMoves: Set<string> = new Set();
+    const directions = [
+        [-1, 0],
+        [0, -1],
+        [1, 0],
+        [0, 1],
+    ];
+    directions.forEach((direction) => {
+        const [incRow, incCol] = direction;
+
+        let curRow = r + incRow;
+        let curCol = c + incCol;
+        while (
+            isValidDestination(board, curRow, curCol, affiliation) &&
+            isRailroad(curRow, curCol)
+        ) {
+            railroadMoves.add(JSON.stringify([curRow, curCol]));
+            if (isOccupied(board, curRow, curCol)) {
+                break;
+            }
+            curRow += incRow;
+            curCol += incCol;
+        }
+    });
+    return railroadMoves;
+}
 
 /**
  * Gets a list of possible positions the piece at a given coordinate pair can travel to.
@@ -118,89 +205,25 @@ export function getSuccessors(
         return [];
     }
 
-    const railroadMoves = new Set();
-    if (piece.name === 'engineer') {
-        if (isRailroad(r, c)) {
-            // perform dfs to find availible moves
-            const stack = [[r, c]];
-            const visited = new Set(JSON.stringify([r, c]));
-            const directions = [
-                [-1, 0],
-                [0, -1],
-                [1, 0],
-                [0, 1],
-            ];
-            while (stack.length > 0) {
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                const [curRow, curCol] = stack.pop()!;
-                
+    const railroadMoves =
+        piece.name === 'engineer'
+            ? _getEngineerRailroadMoves(board, adjList, r, c, affiliation)
+            : _getNormalRailroadMoves(board, adjList, r, c, affiliation);
 
-                // don't add the first location
-                if (!(curRow === r && curCol === c)) {
-                    railroadMoves.add(JSON.stringify([curRow, curCol]));
-                    if (isOccupied(board, curRow, curCol)) { 
-                        continue;
-                    }
-                }
-                
-                // do not explore neighbors of occupied locations
-                
-
-                // explore neighbors if current loc is unoccupied
-                directions.forEach(([incRow, incCol]) => {
-                    const neighbor = [curRow + incRow, curCol + incCol];
-                    if (
-                        !visited.has(JSON.stringify(neighbor)) &&
-                        isValidDestination(
-                            board,
-                            neighbor[0],
-                            neighbor[1],
-                            affiliation,
-                        ) &&
-                        isRailroad(neighbor[0], neighbor[1])
-                    ) {
-                        `pushing neighbor on ${[incRow, incCol]} to stack`;
-                        visited.add(JSON.stringify(neighbor));
-                        stack.push(neighbor);
-                    }
-                });
-            }
-        }
-    } else if (isRailroad(r, c)) {
-        const directions = [
-            [-1, 0],
-            [0, -1],
-            [1, 0],
-            [0, 1],
-        ];
-        directions.forEach((direction) => {
-            const [incRow, incCol] = direction;
-
-            let curRow = r + incRow;
-            let curCol = c + incCol;
-            while (isValidDestination(board, curRow, curCol, affiliation) && isRailroad(curRow, curCol)) {
-                railroadMoves.add(JSON.stringify([curRow, curCol]));
-                if (isOccupied(board, curRow, curCol)) {
-                    break;
-                }
-                curRow += incRow;
-                curCol += incCol;
-            }
-        });
-    }
     const adjListMoves =
         [...(adjList.get(JSON.stringify([r, c])) || [])]
             ?.map((str) => JSON.parse(str))
-            .filter(([r, c]) => isValidDestination(board, r, c, affiliation)) ||
-        [];
+            .filter(([r, c]) => isValidDestination(board, r, c, affiliation))
+            .map((move) => JSON.stringify(move)) || [];
 
-        const jsonMoves = new Set([
+    const allMovesJson = new Set([
         ...railroadMoves,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        ...adjListMoves.map((move) => JSON.stringify(move)),
+        ...adjListMoves,
     ]) as Set<string>;
 
-    return [...jsonMoves].map((m) => JSON.parse(m));
+    const allMoves: number[][] = [...allMovesJson].map((m) => JSON.parse(m));
+    return allMoves;
 }
 
 /**
