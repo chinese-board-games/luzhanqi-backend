@@ -1,4 +1,6 @@
+import { before } from 'node:test';
 import { Board } from './board';
+import { emptyBoard } from './core';
 import {
     getSuccessors,
     isValidRow,
@@ -78,21 +80,48 @@ describe('isRailroad', () => {
 });
 
 describe('isValidDestination', () => {
-    let board: Board = [];
-    for (let i = 0; i < 12; i++) {
-        board.push(Array(5).fill(null));
-    }
-    test('out of bound x move [-1, 5] should not be valid', () =>
-        expect(isValidDestination(board, -1, 5, 0)).toBe(false));
+    let board = emptyBoard();
 
-    test('out of bound y move [0, -1] should not be valid', () =>
-        expect(isValidDestination(board, 0, -1, 0)).toBe(false));
+    beforeEach(() => {
+        board = emptyBoard();
+    })
 
-    board = placePiece(board, 0, 0, createPiece('field_marshall', 0));
-    test('[0, 0] should be an invalid destination for affiliation 0', () =>
-        expect(isValidDestination(board, 0, 0, 0)).toBe(false));
-    test('[0, 0] should be a valid destination for affiliation 1', () =>
-        expect(isValidDestination(board, 0, 0, 1)).toBe(true));
+    describe('test out of bound destinations', () => {
+        test('out of bound x move [-1, 5] should not be valid', () => {
+            expect(isValidDestination(board, -1, 5, 0)).toBe(false);
+        });
+        test('out of bound y move [0, -1] should not be valid', () => {
+            expect(isValidDestination(board, 0, -1, 0)).toBe(false);
+        });
+    });
+
+    describe('test normal position occupation by friendly vs enemy', () => {
+        beforeEach(() => {
+            board = placePiece(board, 0, 0, createPiece('field_marshall', 0));
+        })
+        test('[0, 0] should be an invalid destination for affiliation 0 since you cannot attack your own troops', () => {
+            expect(isValidDestination(board, 0, 0, 0)).toBe(false);
+        });
+        test('[0, 0] should be a valid destination for affiliation 1 since you can attack an enemy', () =>
+            expect(isValidDestination(board, 0, 0, 1)).toBe(true));
+    });
+
+    describe('test camp positions', () => {
+        test('[2, 1] should be an invalid destination for affiliation 0 since it is occupied', () => {
+            board = placePiece(board, 2, 1, createPiece('bomb', 0));
+            expect(isValidDestination(board, 2, 1, 0)).toBe(false);
+        });
+        test('[2, 1] should be an invalid destination for affiliation 1 since it is occupied', () => {
+            board = placePiece(board, 2, 1, createPiece('bomb', 1));
+            expect(isValidDestination(board, 2, 1, 1)).toBe(false);
+        });
+        test('[2, 1] should be a valid destination for affiliation 0 since it is empty', () => {
+            expect(isValidDestination(board, 2, 1, 0)).toBe(true);
+        });
+        test('[2, 1] should be a valid destination for affiliation 1 since it is empty', () => {
+            expect(isValidDestination(board, 2, 1, 1)).toBe(true);
+        });
+    });
 });
 
 describe('generateAdjList', () => {

@@ -44,17 +44,17 @@ export const isValidDestination = (
     if (!isValidRow(r) || !isValidCol(c)) {
         return false;
     }
-
+    const debug = (board[r][c])
     // you can't move into an occupied camp
     if (isCamp(r, c) && board[r][c] != null) {
         return false;
     }
 
-    // you can't attack your own't troops
+    // you can't move to a position occupied by your own piece
     if (board[r][c] != null && board[r][c]?.affiliation === affiliation) {
         return false;
     }
-    
+
     return true;
 };
 
@@ -318,10 +318,10 @@ export const placePiece = (
     board: Board,
     r: number,
     c: number,
-    piece: Piece,
+    piece: Piece | null,
 ): Board => {
     if (!isValidRow(r) || !isValidCol(c)) {
-        throw 'Invalid position passed';
+        throw Error('Invalid position passed');
     }
     return board.map((row, i) =>
         row.map((cell, j) => (i === r && j === c ? piece : cell)),
