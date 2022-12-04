@@ -1,28 +1,6 @@
-import { isCamp } from './core';
-import { Piece } from './piece';
+import { isCamp, isValidRow, isValidCol, isOccupied, isRailroad } from './core';
 import { Board } from './board';
 
-/**
- * Checks validity of row index
- *
- * @function
- * @param r The row index of a coordinate pair.
- * @see isValidRow
- * @returns Whether the row index is within board bounds.
- */
-
-export const isValidRow = (r: number): boolean => r >= 0 && r < 12;
-
-/**
- * Checks validity of column index
- *
- * @function
- * @param {number} c The column index of a coordinate pair.
- * @see isValidCol
- * @returns {boolean} Whether the column index is within board bounds.
- */
-
-export const isValidCol = (c: number): boolean => c >= 0 && c < 5;
 
 /**
  * Checks validity of coordinate pair as piece destination
@@ -44,7 +22,7 @@ export const isValidDestination = (
     if (!isValidRow(r) || !isValidCol(c)) {
         return false;
     }
-    const debug = (board[r][c])
+    const debug = board[r][c];
     // you can't move into an occupied camp
     if (isCamp(r, c) && board[r][c] != null) {
         return false;
@@ -59,42 +37,31 @@ export const isValidDestination = (
 };
 
 /**
- * Checks whether the space is a railroad tile.
- *
- * @function
- * @param {number} r The row of the target coordinate pair.
- * @param {number} c The column of the target coordinate pair.
- * @returns {boolean} Whether the space is a railroad tile.
- */
-
-export const isRailroad = (r: number, c: number): boolean => {
-    if (!isValidRow(r) || !isValidCol(c)) {
-        return false;
-    }
-    if (c === 0 || c === 4) {
-        return r > 0 && r < 12;
-    }
-    return r === 1 || r === 5 || r === 6 || r === 10;
-};
-
-/**
  * The type of an adjacency list.
  *
  * @typedef {Map<string, string[]>} Adjlist
  */
 type Adjlist = Map<string, string[]>;
 
-function _getEngineerRailroadMoves(
+export function _getEngineerRailroadMoves(
     board: Board,
-    adjList: Adjlist,
     r: number,
     c: number,
     affiliation: number,
 ): Set<string> {
     const railroadMoves: Set<string> = new Set();
+
+    if (!isRailroad(r, c)) {
+        throw Error(`Position [${r}, ${c}] is not a railroad.`);
+    }
+
+    if (board[r][c]?.name !== 'engineer') {
+        throw Error(`Position [${r}, ${c}] is not an engineer.`);
+    }
+
     // perform dfs to find availible moves
     const stack = [[r, c]];
-    const visited = new Set(JSON.stringify([r, c]));
+    const visited = new Set([JSON.stringify([r, c])]);
     const directions = [
         [-1, 0],
         [0, -1],
@@ -109,12 +76,11 @@ function _getEngineerRailroadMoves(
         // don't add the first location
         if (!(curRow === r && curCol === c)) {
             railroadMoves.add(JSON.stringify([curRow, curCol]));
+            // do not explore neighbors of occupied locations
             if (isOccupied(board, curRow, curCol)) {
                 continue;
             }
         }
-
-        // do not explore neighbors of occupied locations
 
         // explore neighbors if current loc is unoccupied
         directions.forEach(([incRow, incCol]) => {
@@ -138,9 +104,8 @@ function _getEngineerRailroadMoves(
     return railroadMoves;
 }
 
-function _getNormalRailroadMoves(
+export function _getNormalRailroadMoves(
     board: Board,
-    adjList: Adjlist,
     r: number,
     c: number,
     affiliation: number,
@@ -220,8 +185,8 @@ export function getSuccessors(
 
     const railroadMoves =
         piece.name === 'engineer'
-            ? _getEngineerRailroadMoves(board, adjList, r, c, affiliation)
-            : _getNormalRailroadMoves(board, adjList, r, c, affiliation);
+            ? _getEngineerRailroadMoves(board, r, c, affiliation)
+            : _getNormalRailroadMoves(board, r, c, affiliation);
 
     const adjListMoves =
         [...(adjList.get(JSON.stringify([r, c])) || [])]
@@ -301,36 +266,4 @@ export const generateAdjList = (): Map<string, string[]> => {
         }
     }
     return adjList;
-};
-
-/**
- * Returns a new board with the placed piece.
- *
- * @function
- * @param {Board} board The Board object as defined in the backend Schema.
- * @param {number} r The row of the target coordinate pair.
- * @param {number} c The column of the target coordinate pair.
- * @param {Piece} piece A Piece object as defined in Piece.js.
- * @see placePiece
- * @returns {Board} A new board with the placed piece.
- */
-export const placePiece = (
-    board: Board,
-    r: number,
-    c: number,
-    piece: Piece | null,
-): Board => {
-    if (!isValidRow(r) || !isValidCol(c)) {
-        throw Error('Invalid position passed');
-    }
-    return board.map((row, i) =>
-        row.map((cell, j) => (i === r && j === c ? piece : cell)),
-    );
-};
-
-const isOccupied = (board: Board, r: number, c: number): boolean => {
-    if (!isValidRow(r) || !isValidCol(c)) {
-        return false;
-    }
-    return board[r][c] !== null;
 };
