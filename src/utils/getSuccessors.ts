@@ -1,6 +1,6 @@
+import isEqual from 'lodash.isequal';
 import { isCamp, isValidRow, isValidCol, isOccupied, isRailroad } from './core';
 import { Board } from './board';
-
 
 /**
  * Checks validity of coordinate pair as piece destination
@@ -39,9 +39,9 @@ export const isValidDestination = (
 /**
  * The type of an adjacency list.
  *
- * @typedef {Map<string, string[]>} Adjlist
+ * @typedef {Map<string, Set<string>>} Adjlist
  */
-type Adjlist = Map<string, string[]>;
+type Adjlist = Map<string, Set<string>>;
 
 export function _getEngineerRailroadMoves(
     board: Board,
@@ -93,6 +93,7 @@ export function _getEngineerRailroadMoves(
                     neighbor[1],
                     affiliation,
                 ) &&
+                !isBlockedPath([curRow, curCol], neighbor) &&
                 isRailroad(neighbor[0], neighbor[1])
             ) {
                 visited.add(JSON.stringify(neighbor));
@@ -110,6 +111,14 @@ export function _getNormalRailroadMoves(
     c: number,
     affiliation: number,
 ): Set<string> {
+    if (!isRailroad(r, c)) {
+        throw Error(`Position [${r}, ${c}] is not a railroad.`);
+    }
+
+    if (['engineer', 'landmine', 'flag'].includes(board[r][c]?.name || '')) {
+        throw Error(`Position [${r}, ${c}] is not a normal piece.`);
+    }
+
     const railroadMoves: Set<string> = new Set();
     const directions = [
         [-1, 0],
@@ -124,6 +133,7 @@ export function _getNormalRailroadMoves(
         let curCol = c + incCol;
         while (
             isValidDestination(board, curRow, curCol, affiliation) &&
+            !isBlockedPath([r, c], [curRow, curCol]) &&
             isRailroad(curRow, curCol)
         ) {
             railroadMoves.add(JSON.stringify([curRow, curCol]));
@@ -204,6 +214,22 @@ export function getSuccessors(
     return allMoves;
 }
 
+export const isBlockedPath = (origin: number[], destination: number[]) => {
+    const blockedPaths = [
+        { origin: [5, 1], destination: [6, 1] },
+        { origin: [5, 3], destination: [6, 3] },
+    ];
+    for (const blockedPath of blockedPaths) {
+        if (
+            isEqual(blockedPath, { origin, destination }) ||
+            isEqual(blockedPath, { origin: destination, destination: origin })
+        ) {
+            return true;
+        }
+    }
+    return false;
+};
+
 /**
  * Generates the adjacency list for a two player Luzhanqi game in the form of a
  * Map object. The generated Map uses the JSON.stringified versions of
@@ -211,12 +237,12 @@ export function getSuccessors(
  *
  * @function
  * @see generateAdjList
- * @returns {Map<string, string[]>} Keys are JSON.stringified coordinate array
+ * @returns A map of coordinates to a set of valid connections.. 
  *   keys and values are arrays of JSON.stringified coordinates.
  */
-export const generateAdjList = (): Map<string, string[]> => {
+export const generateAdjList = (): Adjlist => {
     // note that the coordinates are stored in a JSON format
-    const adjList = new Map();
+    const adjList: Map<string, Set<string>> = new Map();
     for (let originR = 0; originR < 12; originR++) {
         for (let originC = 0; originC < 5; originC++) {
             const connections =
@@ -245,7 +271,7 @@ export const generateAdjList = (): Map<string, string[]> => {
             directions.forEach(([incR, incC]) => {
                 const destR = originR + incR;
                 const destC = originC + incC;
-                if (isValidRow(destR) && isValidCol(destC)) {
+                if (isValidRow(destR) && isValidCol(destC) && !isBlockedPath([originR, originC], [destR, destC])) {
                     connections.add(JSON.stringify([destR, destC]));
                     // set reverse direction if center piece
                     if (isCamp(originR, originC)) {
@@ -256,8 +282,8 @@ export const generateAdjList = (): Map<string, string[]> => {
                             );
                         }
                         adjList
-                            .get(JSON.stringify([destR, destC]))
-                            .add(JSON.stringify([originR, originC]));
+                            ?.get(JSON.stringify([destR, destC]))
+                            ?.add(JSON.stringify([originR, originC]));
                     }
                 }
             });
