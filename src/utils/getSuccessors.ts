@@ -43,6 +43,72 @@ export const isValidDestination = (
  */
 type Adjlist = Map<string, Set<string>>;
 
+/**
+ * Generates the adjacency list for a two player Luzhanqi game in the form of a
+ * Map object. The generated Map uses the JSON.stringified versions of
+ * coordinate arrays because of the way javascript handles the comparison of arrays.
+ *
+ * @function
+ * @see generateAdjList
+ * @returns A map of coordinates to a set of valid connections.. 
+ *   keys and values are arrays of JSON.stringified coordinates.
+ */
+ export const generateAdjList = (): Adjlist => {
+    // note that the coordinates are stored in a JSON format
+    const adjList: Map<string, Set<string>> = new Map();
+    for (let originR = 0; originR < 12; originR++) {
+        for (let originC = 0; originC < 5; originC++) {
+            const connections =
+                adjList.get(JSON.stringify([originR, originC])) || new Set();
+
+            // add up/down and left/right connections
+            const directions = [
+                [-1, 0],
+                [0, -1],
+                [1, 0],
+                [0, 1],
+            ];
+
+            if (isCamp(originR, originC)) {
+                // add diagonal connections
+                directions.push(
+                    ...[
+                        [-1, -1],
+                        [1, -1],
+                        [-1, 1],
+                        [1, 1],
+                    ],
+                );
+            }
+
+            directions.forEach(([incR, incC]) => {
+                const destR = originR + incR;
+                const destC = originC + incC;
+                if (isValidRow(destR) && isValidCol(destC) && !isBlockedPath([originR, originC], [destR, destC])) {
+                    connections.add(JSON.stringify([destR, destC]));
+                    // set reverse direction if center piece
+                    if (isCamp(originR, originC)) {
+                        if (!adjList.has(JSON.stringify([destR, destC]))) {
+                            adjList.set(
+                                JSON.stringify([destR, destC]),
+                                new Set(),
+                            );
+                        }
+                        adjList
+                            ?.get(JSON.stringify([destR, destC]))
+                            ?.add(JSON.stringify([originR, originC]));
+                    }
+                }
+            });
+
+            adjList.set(JSON.stringify([originR, originC]), connections);
+        }
+    }
+    return adjList;
+};
+
+export const adjList = generateAdjList();
+
 export function _getEngineerRailroadMoves(
     board: Board,
     r: number,
@@ -153,8 +219,6 @@ export function _getNormalRailroadMoves(
  * @param {Board} board The Board object as defined in the backend Schema.
  * @param {number} r The row index of the source coordinate pair.
  * @param {number} c The column index of the source coordinate pair.
- * @param {Adjlist} adjList A Map object representing the graph of duplex tile
- *   connections.
  * @param {number} affiliation 0 for host, increments by 1 for additional players.
  * @see getSuccessors
  * @throws Will throw an error if the board is not 12 by 5 and/or if the source
@@ -163,7 +227,6 @@ export function _getNormalRailroadMoves(
  */
 export function getSuccessors(
     board: Board,
-    adjList: Adjlist,
     r: number,
     c: number,
     affiliation: number,
@@ -214,7 +277,7 @@ export function getSuccessors(
     return allMoves;
 }
 
-export const isBlockedPath = (origin: number[], destination: number[]) => {
+export function isBlockedPath(origin: number[], destination: number[]) {
     const blockedPaths = [
         { origin: [5, 1], destination: [6, 1] },
         { origin: [5, 3], destination: [6, 3] },
@@ -228,68 +291,4 @@ export const isBlockedPath = (origin: number[], destination: number[]) => {
         }
     }
     return false;
-};
-
-/**
- * Generates the adjacency list for a two player Luzhanqi game in the form of a
- * Map object. The generated Map uses the JSON.stringified versions of
- * coordinate arrays because of the way javascript handles the comparison of arrays.
- *
- * @function
- * @see generateAdjList
- * @returns A map of coordinates to a set of valid connections.. 
- *   keys and values are arrays of JSON.stringified coordinates.
- */
-export const generateAdjList = (): Adjlist => {
-    // note that the coordinates are stored in a JSON format
-    const adjList: Map<string, Set<string>> = new Map();
-    for (let originR = 0; originR < 12; originR++) {
-        for (let originC = 0; originC < 5; originC++) {
-            const connections =
-                adjList.get(JSON.stringify([originR, originC])) || new Set();
-
-            // add up/down and left/right connections
-            const directions = [
-                [-1, 0],
-                [0, -1],
-                [1, 0],
-                [0, 1],
-            ];
-
-            if (isCamp(originR, originC)) {
-                // add diagonal connections
-                directions.push(
-                    ...[
-                        [-1, -1],
-                        [1, -1],
-                        [-1, 1],
-                        [1, 1],
-                    ],
-                );
-            }
-
-            directions.forEach(([incR, incC]) => {
-                const destR = originR + incR;
-                const destC = originC + incC;
-                if (isValidRow(destR) && isValidCol(destC) && !isBlockedPath([originR, originC], [destR, destC])) {
-                    connections.add(JSON.stringify([destR, destC]));
-                    // set reverse direction if center piece
-                    if (isCamp(originR, originC)) {
-                        if (!adjList.has(JSON.stringify([destR, destC]))) {
-                            adjList.set(
-                                JSON.stringify([destR, destC]),
-                                new Set(),
-                            );
-                        }
-                        adjList
-                            ?.get(JSON.stringify([destR, destC]))
-                            ?.add(JSON.stringify([originR, originC]));
-                    }
-                }
-            });
-
-            adjList.set(JSON.stringify([originR, originC]), connections);
-        }
-    }
-    return adjList;
 };
