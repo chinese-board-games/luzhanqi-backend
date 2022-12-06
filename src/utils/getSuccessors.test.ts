@@ -263,15 +263,51 @@ describe('generateAdjList', () => {
             expect(connections?.has(JSON.stringify(pair))).toBe(expected);
         },
     );
+
+    test.each`
+        pair      | expected
+        ${[0, 1]} | ${true}
+        ${[1, 0]} | ${true}
+        ${[1, 1]} | ${false}
+    `(
+        '[0, 0] has a connection to $pair should be $expected',
+        ({ pair, expected }) => {
+            const connections = adjList.get(JSON.stringify([0, 0]));
+            expect(connections).toBeInstanceOf(Set);
+            expect(connections?.has(JSON.stringify(pair))).toBe(expected);
+        },
+    );
+
+    test.each`
+        pair      | expected
+        ${[3, 1]} | ${true}
+        ${[2, 1]} | ${true}
+        ${[2, 2]} | ${true}
+        ${[2, 3]} | ${true}
+        ${[3, 3]} | ${true}
+        ${[4, 3]} | ${true}
+        ${[4, 2]} | ${true}
+        ${[4, 1]} | ${true}
+        ${[1, 2]} | ${false}
+        ${[5, 2]} | ${false}
+    `(
+        '[3, 2] has a connection to $pair should be $expected',
+        ({ pair, expected }) => {
+            const connections = adjList.get(JSON.stringify([3, 2]));
+            expect(connections).toBeInstanceOf(Set);
+            expect(connections?.has(JSON.stringify(pair))).toBe(expected);
+        },
+    );
 });
 
 describe('getSuccessors', () => {
-    const board: Board = [];
-    for (let i = 0; i < 12; i++) {
-        board.push(Array(5).fill(null));
-    }
-    const adjList = generateAdjList();
+    let board: Board = [];
+
+    beforeEach(() => {
+        board = emptyBoard();
+    });
+    
     test('this should not crash', () => {
-        getSuccessors(board, adjList, 0, 0, 0);
+        getSuccessors(board, 0, 0, 0);
     });
 });
