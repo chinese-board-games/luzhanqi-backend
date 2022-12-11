@@ -24,8 +24,7 @@ const options = {
         origin: [
             'http://localhost:3000',
             'http://localhost:3001',
-            'http://lzq.surge.sh',
-            'https://lzq.surge.sh',
+            /.*lzq\.surge\.sh.*/,
         ],
         methods: ['GET', 'POST'],
     },
