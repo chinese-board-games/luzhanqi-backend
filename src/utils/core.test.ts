@@ -85,4 +85,32 @@ describe('isRailroad', () => {
         expect(rightCol.map(([r, c]) => isRailroad(r, c)).every((v) => v)).toBe(
             true,
         ));
+
+    test('[0, 0] to [0, 4] should be invalid railroad coordinates', () => {
+        for (let i = 0; i < 5; i++) {
+            expect(isRailroad(0, i)).toBe(false);
+        }
+    });
+
+    test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
+        for (let r = 2; r < 5; r++) {
+            for(let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false)
+            }
+        }
+    });
+
+    test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
+        for (let r = 7; r < 10; r++) {
+            for(let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false)
+            }
+        }
+    });
+
+    test('[11, 0] to [11, 4] should be invalid railroad coordinates', () => {
+        for (let i = 0; i < 5; i++) {
+            expect(isRailroad(11, i)).toBe(false);
+        }
+    });
 });
