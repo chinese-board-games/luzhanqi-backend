@@ -232,8 +232,6 @@ describe('isBlockedPath', () => {
     `(
         '$origin to $destination should be blocked? $expected',
         ({ origin, destination, expected }) => {
-            console.log(origin);
-            console.log(destination)
             expect(isBlockedPath(origin, destination)).toBe(expected);
         },
     );
