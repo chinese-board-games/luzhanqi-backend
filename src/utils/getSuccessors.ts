@@ -50,10 +50,10 @@ type Adjlist = Map<string, Set<string>>;
  *
  * @function
  * @see generateAdjList
- * @returns A map of coordinates to a set of valid connections.. 
+ * @returns A map of coordinates to a set of valid connections..
  *   keys and values are arrays of JSON.stringified coordinates.
  */
- export const generateAdjList = (): Adjlist => {
+export const generateAdjList = (): Adjlist => {
     // note that the coordinates are stored in a JSON format
     const adjList: Map<string, Set<string>> = new Map();
     for (let originR = 0; originR < 12; originR++) {
@@ -84,7 +84,11 @@ type Adjlist = Map<string, Set<string>>;
             directions.forEach(([incR, incC]) => {
                 const destR = originR + incR;
                 const destC = originC + incC;
-                if (isValidRow(destR) && isValidCol(destC) && !isBlockedPath([originR, originC], [destR, destC])) {
+                if (
+                    isValidRow(destR) &&
+                    isValidCol(destC) &&
+                    !isBlockedPath([originR, originC], [destR, destC])
+                ) {
                     connections.add(JSON.stringify([destR, destC]));
                     // set reverse direction if center piece
                     if (isCamp(originR, originC)) {
@@ -118,7 +122,7 @@ export function _getEngineerRailroadMoves(
     const railroadMoves: Set<string> = new Set();
 
     if (!isRailroad(r, c)) {
-        throw Error(`Position [${r}, ${c}] is not a railroad.`);
+        return railroadMoves;
     }
 
     if (board[r][c]?.name !== 'engineer') {
@@ -177,15 +181,16 @@ export function _getNormalRailroadMoves(
     c: number,
     affiliation: number,
 ): Set<string> {
+    const railroadMoves: Set<string> = new Set();
+
     if (!isRailroad(r, c)) {
-        throw Error(`Position [${r}, ${c}] is not a railroad.`);
+        return railroadMoves;
     }
 
     if (['engineer', 'landmine', 'flag'].includes(board[r][c]?.name || '')) {
         throw Error(`Position [${r}, ${c}] is not a normal piece.`);
     }
 
-    const railroadMoves: Set<string> = new Set();
     const directions = [
         [-1, 0],
         [0, -1],
@@ -252,7 +257,12 @@ export function getSuccessors(
     const piece = board[r][c];
 
     // get the piece type
-    if (piece == null || piece.name === 'landmine' || piece.name === 'flag') {
+    if (
+        piece == null ||
+        piece.name === 'landmine' ||
+        piece.name === 'flag' ||
+        piece.affiliation !== affiliation
+    ) {
         return [];
     }
 
@@ -291,4 +301,4 @@ export function isBlockedPath(origin: number[], destination: number[]) {
         }
     }
     return false;
-};
+}

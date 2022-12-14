@@ -118,7 +118,7 @@ export const isOccupied = (board: Board, r: number, c: number): boolean => {
         return false;
     }
     if (c === 0 || c === 4) {
-        return r > 0 && r < 12;
+        return r >= 1 && r <= 10;
     }
     return r === 1 || r === 5 || r === 6 || r === 10;
 };

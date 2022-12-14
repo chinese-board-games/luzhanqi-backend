@@ -1,3 +1,4 @@
+import isEqual from 'lodash.isequal';
 import { Board, emptyBoard } from './board';
 import {
     getSuccessors,
@@ -179,6 +180,15 @@ describe('_getNormalRailroadMoves', () => {
         }
     });
 
+    test('should only include railroad tracks', () => {
+        board = placePiece(board, 8, 0, createPiece('major', 0));
+        board = placePiece(board, 9, 0, createPiece('bomb', 0));
+        const moves = _getNormalRailroadMoves(board, 9, 0, 0);
+
+        expect(moves.has(JSON.stringify([10, 0]))).toBe(true);
+        expect(moves.has(JSON.stringify([11, 0]))).toBe(false);
+    })
+
     test('piece should be blocked by an enemy piece', () => {
         board = placePiece(board, 1, 0, createPiece('bomb', 0));
         board = placePiece(board, 1, 2, createPiece('major', 1));
@@ -307,7 +317,24 @@ describe('getSuccessors', () => {
         board = emptyBoard();
     });
     
-    test('this should not crash', () => {
-        getSuccessors(board, 0, 0, 0);
+    test('combined moves from adjList and railroad', () => {
+        board = placePiece(board, 1, 0, createPiece("bomb", 0));
+        const successors = getSuccessors(board, 1, 0, 0);
+        const moveSet = new Set(successors.map(sucessor => JSON.stringify(sucessor)));
+        const expectedMovesSet = new Set([
+            [2, 1],
+            [0, 0]
+        ].map(x => JSON.stringify(x)))
+
+        // left vertical trak
+        for (let i = 2; i < 11; i++) {
+            expectedMovesSet.add(JSON.stringify([i, 0]))
+        }
+
+        // horizontal track at row 1
+        for (let i = 1; i < 5; i++) {
+            expectedMovesSet.add(JSON.stringify([1, i]))
+        }
+        expect(isEqual(moveSet, expectedMovesSet)).toBe(true)
     });
 });
