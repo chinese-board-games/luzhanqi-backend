@@ -9,7 +9,7 @@ import debugLib from 'debug';
 import http from 'http';
 import app from './app';
 import { initGame } from './lzqgame';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 const debug = debugLib('your-project-name:server');
 
@@ -50,7 +50,7 @@ interface SocketData {
 }
 
 const io = new Server(server, options);
-io.on('connection', (socket: any) => {
+io.on('connection', (socket: Socket) => {
     console.log('client connected');
     initGame(io, socket);
 });
