@@ -124,8 +124,8 @@ async function playerJoinGame(data) {
         });
         if (myUpdatedGame) {
             data.players = await getPlayers(data.joinRoomId);
+            sock.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
-            sock.emit('youHaveJoinedTheRoom');
         } else {
             console.error('Player could not be added to given game');
             sock.emit(
