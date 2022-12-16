@@ -25,6 +25,7 @@ const options = {
             'http://localhost:3000',
             'http://localhost:3001',
             /.*lzq\.surge\.sh.*/,
+            /.*lzq-staging\.surge\.sh.*/,
         ],
         methods: ['GET', 'POST'],
     },
