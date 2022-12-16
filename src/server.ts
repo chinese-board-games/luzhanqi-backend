@@ -22,10 +22,11 @@ const options = {
     maxHttpBufferSize: 1e8,
     cors: {
         origin: [
-            'http://localhost:3000',
-            'http://localhost:3001',
+            /http:\/\/localhost:\d+/, // local development
             /.*lzq\.surge\.sh.*/,
             /.*lzq-staging\.surge\.sh.*/,
+            /.*luzhanqi\.netlify\.app/,
+            /.*luzhanqi-staging\.netlify\.app/,
         ],
         methods: ['GET', 'POST'],
     },
