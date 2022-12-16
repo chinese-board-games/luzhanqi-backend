@@ -48,43 +48,57 @@ describe('isValidCol', () => {
 describe('isRailroad', () => {
     const generateRow = (r: number) => [...Array(4).keys()].map((c) => [r, c]);
 
-    const topRailCoords = generateRow(1);
-    test('[1, 0] to [1, 4] should be valid railroad coordinates', () =>
-        expect(
+    test('[1, 0] to [1, 4] should be valid railroad coordinates', () => {
+        const topRailCoords = generateRow(1);
+        return expect(
             topRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
-        ).toBe(true));
+        ).toBe(true);
+    });
 
-    const topMidRailCoords = generateRow(5);
-    test('[5, 0] to [5, 4] should be valid railroad coordinates', () =>
-        expect(
+    test('[5, 0] to [5, 4] should be valid railroad coordinates', () => {
+        const topMidRailCoords = generateRow(5);
+
+        return expect(
             topMidRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
-        ).toBe(true));
+        ).toBe(true);
+    });
 
-    const botMidRailCoords = generateRow(6);
-    test('[6, 0] to [6, 4] should be valid railroad coordinates', () =>
-        expect(
+    test('[6, 0] to [6, 4] should be valid railroad coordinates', () => {
+        const botMidRailCoords = generateRow(6);
+
+        return expect(
             botMidRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
-        ).toBe(true));
+        ).toBe(true);
+    });
 
-    const botRailCoords = generateRow(10);
-    test('[10, 0] to [10, 4] should be valid railroad coordinates', () =>
-        expect(
+    test('[10, 0] to [10, 4] should be valid railroad coordinates', () => {
+        const botRailCoords = generateRow(10);
+
+        return expect(
             botRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
-        ).toBe(true));
+        ).toBe(true);
+    });
 
-    const generateCol = (c: number) => [...Array(12).keys()].map((r) => [r, c]);
+    const generateCol = (c: number) =>
+        [...Array(12).keys()].map((r) => {
+            return [r, c];
+        });
 
-    const leftCol = generateCol(0).slice(1, -1);
-    test('[0, 1] to [0, 11] should be valid railroad coordinates', () =>
-        expect(leftCol.map(([r, c]) => isRailroad(r, c)).every((v) => v)).toBe(
-            true,
-        ));
+    test('[0, 1] to [0, 11] should be valid railroad coordinates', () => {
+        const leftCol = generateCol(0).slice(1, -1);
 
-    const rightCol = generateCol(4).slice(1, -1);
-    test('[4, 1] to [4, 11] should be valid railroad coordinates', () =>
-        expect(rightCol.map(([r, c]) => isRailroad(r, c)).every((v) => v)).toBe(
-            true,
-        ));
+        return expect(
+            leftCol.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[4, 1] to [4, 11] should be valid railroad coordinates', () => {
+        const rightCol = generateCol(4).slice(1, -1);
+
+        return expect(
+            rightCol.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
 
     test('[0, 0] to [0, 4] should be invalid railroad coordinates', () => {
         for (let i = 0; i < 5; i++) {
@@ -94,16 +108,16 @@ describe('isRailroad', () => {
 
     test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
         for (let r = 2; r < 5; r++) {
-            for(let c = 1; c < 4; c++) {
-                expect(isRailroad(r, c)).toBe(false)
+            for (let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false);
             }
         }
     });
 
     test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
         for (let r = 7; r < 10; r++) {
-            for(let c = 1; c < 4; c++) {
-                expect(isRailroad(r, c)).toBe(false)
+            for (let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false);
             }
         }
     });
