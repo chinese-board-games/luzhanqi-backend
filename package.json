@@ -15,7 +15,7 @@
         ]
     },
     "scripts": {
-        "start": "tsc && node ./dist/server.js",
+        "start": "node ./dist/server.js",
         "build": "tsc --p ./tsconfig.json -p .",
         "dev": "ts-node-dev --respawn --pretty --transpile-only ./src/server.ts",
         "prod": "NODE_ENV=production npm run start",
