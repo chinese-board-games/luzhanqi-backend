@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { isCamp, isHQ } from './core';
+import { isCamp, isHQ, isValidRow, isValidCol, isRailroad } from './core';
 
 describe('isCamp', () => {
     test('[2, 1] should be a camp', () => expect(isCamp(2, 1)).toBe(true));
@@ -19,4 +19,112 @@ describe('isHQ', () => {
     test('[0, 3] should be a HQ', () => expect(isHQ(0, 3)).toBe(true));
     test('[11, 1] should be a HQ', () => expect(isHQ(11, 1)).toBe(true));
     test('[11, 3] should be a HQ', () => expect(isHQ(11, 3)).toBe(true));
+});
+
+describe('isValidRow', () => {
+    test('-1 should not be a valid row index', () =>
+        expect(isValidRow(-1)).toBe(false));
+    test('0 should be a valid row index', () =>
+        expect(isValidRow(0)).toBe(true));
+    test('5 should be a valid row index', () =>
+        expect(isValidRow(5)).toBe(true));
+    test('11 should be a valid row index', () =>
+        expect(isValidRow(11)).toBe(true));
+    test('12 should not be a valid row index', () =>
+        expect(isValidRow(12)).toBe(false));
+});
+
+describe('isValidCol', () => {
+    test('-1 should not be a valid column index', () =>
+        expect(isValidCol(-1)).toBe(false));
+    test('0 should be a valid column index', () =>
+        expect(isValidCol(0)).toBe(true));
+    test('4 should be a valid column index', () =>
+        expect(isValidCol(4)).toBe(true));
+    test('5 should be a valid column index', () =>
+        expect(isValidCol(5)).toBe(false));
+});
+
+describe('isRailroad', () => {
+    const generateRow = (r: number) => [...Array(4).keys()].map((c) => [r, c]);
+
+    test('[1, 0] to [1, 4] should be valid railroad coordinates', () => {
+        const topRailCoords = generateRow(1);
+        return expect(
+            topRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[5, 0] to [5, 4] should be valid railroad coordinates', () => {
+        const topMidRailCoords = generateRow(5);
+
+        return expect(
+            topMidRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[6, 0] to [6, 4] should be valid railroad coordinates', () => {
+        const botMidRailCoords = generateRow(6);
+
+        return expect(
+            botMidRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[10, 0] to [10, 4] should be valid railroad coordinates', () => {
+        const botRailCoords = generateRow(10);
+
+        return expect(
+            botRailCoords.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    const generateCol = (c: number) =>
+        [...Array(12).keys()].map((r) => {
+            return [r, c];
+        });
+
+    test('[0, 1] to [0, 11] should be valid railroad coordinates', () => {
+        const leftCol = generateCol(0).slice(1, -1);
+
+        return expect(
+            leftCol.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[4, 1] to [4, 11] should be valid railroad coordinates', () => {
+        const rightCol = generateCol(4).slice(1, -1);
+
+        return expect(
+            rightCol.map(([r, c]) => isRailroad(r, c)).every((v) => v),
+        ).toBe(true);
+    });
+
+    test('[0, 0] to [0, 4] should be invalid railroad coordinates', () => {
+        for (let i = 0; i < 5; i++) {
+            expect(isRailroad(0, i)).toBe(false);
+        }
+    });
+
+    test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
+        for (let r = 2; r < 5; r++) {
+            for (let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false);
+            }
+        }
+    });
+
+    test('positions bounded by [2, 1], [2, 3], [4, 1], [4, 3] should be invalid railroad coordinates', () => {
+        for (let r = 7; r < 10; r++) {
+            for (let c = 1; c < 4; c++) {
+                expect(isRailroad(r, c)).toBe(false);
+            }
+        }
+    });
+
+    test('[11, 0] to [11, 4] should be invalid railroad coordinates', () => {
+        for (let i = 0; i < 5; i++) {
+            expect(isRailroad(11, i)).toBe(false);
+        }
+    });
 });

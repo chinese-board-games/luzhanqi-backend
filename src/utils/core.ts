@@ -2,6 +2,28 @@ import { Board } from './board';
 import { Piece } from './piece';
 
 /**
+ * Checks validity of row index
+ *
+ * @function
+ * @param r The row index of a coordinate pair.
+ * @see isValidRow
+ * @returns Whether the row index is within board bounds.
+ */
+
+ export const isValidRow = (r: number): boolean => r >= 0 && r < 12;
+
+ /**
+  * Checks validity of column index
+  *
+  * @function
+  * @param {number} c The column index of a coordinate pair.
+  * @see isValidCol
+  * @returns {boolean} Whether the column index is within board bounds.
+  */
+ 
+ export const isValidCol = (c: number): boolean => c >= 0 && c < 5; 
+
+/**
  * Checks whether a given space is a camp tile.
  *
  * @function
@@ -73,4 +95,30 @@ export const mapBoard = (board: Board, callback: utilCallback): Board => {
         newBoard.push(row);
     }
     return newBoard;
+};
+
+export const isOccupied = (board: Board, r: number, c: number): boolean => {
+    if (!isValidRow(r) || !isValidCol(c)) {
+        return false;
+    }
+    return board[r][c] !== null;
+};
+
+/**
+ * Checks whether the space is a railroad tile.
+ *
+ * @function
+ * @param {number} r The row of the target coordinate pair.
+ * @param {number} c The column of the target coordinate pair.
+ * @returns {boolean} Whether the space is a railroad tile.
+ */
+
+ export const isRailroad = (r: number, c: number): boolean => {
+    if (!isValidRow(r) || !isValidCol(c)) {
+        return false;
+    }
+    if (c === 0 || c === 4) {
+        return r >= 1 && r <= 10;
+    }
+    return r === 1 || r === 5 || r === 6 || r === 10;
 };
