@@ -25,8 +25,8 @@ const options = {
             /http:\/\/localhost:\d+/, // local development
             /.*lzq\.surge\.sh.*/,
             /.*lzq-staging\.surge\.sh.*/,
-            /.*luzhanqi\.netlify\.app/,
-            /.*luzhanqi-staging\.netlify\.app/,
+            /.*luzhanqi\.netlify\.app.*/,
+            /.*luzhanqi-staging\.netlify\.app.*/,
         ],
         methods: ['GET', 'POST'],
     },
