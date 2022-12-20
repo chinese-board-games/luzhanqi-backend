@@ -113,6 +113,10 @@ export const isPlayerTurn = async ({
     /** assume the first matching game found is the only result, and that it is correct
      * assume that there are only two players, arrange by odd / even
      * */
+    if (!myGame) {
+        console.error('Game not found.');
+        return;
+    }
     const playerId = myGame.players.indexOf(playerName);
     return turn % 2 === playerId;
 };
