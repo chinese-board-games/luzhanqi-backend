@@ -1,4 +1,3 @@
-import { Board } from './board';
 import { pieces, Piece } from './piece';
 import { isHQ, isCamp, iterBoard } from './core';
 

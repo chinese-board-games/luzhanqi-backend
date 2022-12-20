@@ -49,23 +49,23 @@ export const initGame = (sio: Server, socket: Socket) => {
 const hostCreateNewGame = async ({ playerName }: { playerName: string }) => {
     // Create a unique Socket.IO Room
     // eslint-disable-next-line no-bitwise
-    const thisGameId = ((Math.random() * 100000) | 0).toString();
+    const gameId = ((Math.random() * 100000) | 0).toString();
     const myGame = await createGame({
-        room: thisGameId,
+        room: gameId,
         host: playerName,
     });
     if (myGame) {
         gameSocket.emit('newGameCreated', {
-            gameId: thisGameId,
+            gameId: gameId,
             mySocketId: gameSocket.id,
-            players: await getPlayers(thisGameId),
+            players: await getPlayers(gameId),
         });
         console.log(
-            `New game created with ID: ${thisGameId} at socket: ${gameSocket.id}`,
+            `New game created with ID: ${gameId} at socket: ${gameSocket.id}`,
         );
 
         // Join the Room and wait for the players
-        gameSocket.join(thisGameId);
+        gameSocket.join(gameId);
     } else {
         console.error('Game was not created.');
     }
@@ -75,7 +75,7 @@ const hostCreateNewGame = async ({ playerName }: { playerName: string }) => {
  * Two players have joined. Alert the host!
  * @param gameId The game ID / room ID
  */
-function hostPrepareGame(gameId: string) {
+const hostPrepareGame = (gameId: string) => {
     const data = {
         mySocketId: gameSocket.id,
         gameId,
@@ -83,7 +83,7 @@ function hostPrepareGame(gameId: string) {
     };
     console.log(`All players present. Preparing game ${data.gameId}`);
     io.in(data.gameId).emit('beginNewGame', data);
-}
+};
 
 /**
  * A player clicked the 'Join Game' button.
@@ -91,12 +91,12 @@ function hostPrepareGame(gameId: string) {
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
  */
-async function playerJoinGame(data: {
+const playerJoinGame = async (data: {
     playerName: string;
     joinRoomId: string;
     mySocketId: string;
     players: string[];
-}) {
+}) => {
     console.log(
         `Player ${data.playerName} attempting to join game: ${data.joinRoomId}`,
     );
@@ -136,9 +136,9 @@ async function playerJoinGame(data: {
             );
         }
     }
-}
+};
 
-async function playerInitialBoard({
+const playerInitialBoard = async ({
     playerName,
     myPositions,
     room,
@@ -146,7 +146,7 @@ async function playerInitialBoard({
     playerName: string;
     myPositions: [][];
     room: string;
-}) {
+}) => {
     let myGame = await getGame(room);
     const playerIndex = myGame.players.indexOf(playerName);
     if (myGame.board === null) {
@@ -177,9 +177,9 @@ async function playerInitialBoard({
         myGame = await getGame(room);
         io.sockets.in(room).emit('boardSet', myGame);
     }
-}
+};
 
-async function pieceSelection({
+const pieceSelection = async ({
     board,
     piece,
     playerName,
@@ -189,12 +189,12 @@ async function pieceSelection({
     piece: number[];
     playerName: string;
     room: string;
-}) {
+}) => {
     const myGame = await getGame(room);
     const playerIndex = myGame.players.indexOf(playerName);
     const successors = getSuccessors(board, piece[0], piece[1], playerIndex);
     gameSocket.emit('pieceSelected', successors);
-}
+};
 
 // returns a new board
 const pieceMovement = (board: Board, source: Piece, target: Piece) => {
@@ -249,7 +249,7 @@ const pieceMovement = (board: Board, source: Piece, target: Piece) => {
     return board;
 };
 
-async function playerMakeMove({
+const playerMakeMove = async ({
     playerName,
     room,
     turn,
@@ -262,7 +262,7 @@ async function playerMakeMove({
         source: Piece;
         target: Piece;
     };
-}) {
+}) => {
     // TODO: add move validation function
     if (
         await isPlayerTurn({
@@ -297,14 +297,14 @@ async function playerMakeMove({
     } else {
         gameSocket.emit('error', 'It is not your turn.');
     }
-}
+};
 
 /**
  * The game is over, and a player has clicked a button to restart the game.
  * @param data
  */
-function playerRestart(data: { gameId: string; playerId: string }) {
+const playerRestart = (data: { gameId: string; playerId: string }) => {
     // Emit the player's data back to the clients in the game room.
     data.playerId = gameSocket.id;
     io.sockets.in(data.gameId).emit('playerJoinedRoom', data);
-}
+};
