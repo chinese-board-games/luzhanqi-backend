@@ -102,8 +102,12 @@ const playerJoinGame = async (data: {
     );
 
     const existingPlayers = await getPlayers(data.joinRoomId);
-
-    if (existingPlayers.includes(data.playerName)) {
+    if (!existingPlayers) {
+        gameSocket.emit(
+            'error',
+            'This game does not exist. Please enter a valid game ID.',
+        );
+    } else if (existingPlayers.includes(data.playerName)) {
         gameSocket.emit(
             'error',
             'There is already a player in this game by that name. Please choose another.',
@@ -125,7 +129,16 @@ const playerJoinGame = async (data: {
             playerName: data.playerName,
         });
         if (myUpdatedGame) {
-            data.players = await getPlayers(data.joinRoomId);
+            const players = await getPlayers(data.joinRoomId);
+            if (!players) {
+                console.error('Player could not be added to given game');
+                gameSocket.emit(
+                    'error',
+                    `${data.playerName} could not be added to game: ${data.joinRoomId}`,
+                );
+                return;
+            }
+            data.players = players;
             gameSocket.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
@@ -148,6 +161,11 @@ const playerInitialBoard = async ({
     room: string;
 }) => {
     let myGame = await getGame(room);
+    if (!myGame) {
+        console.error('Game not found.');
+        gameSocket.emit('error', `$Game not found: ${room}`);
+        return;
+    }
     const playerIndex = myGame.players.indexOf(playerName);
     if (myGame.board === null) {
         let halfGameBoard;
@@ -191,7 +209,13 @@ const pieceSelection = async ({
     room: string;
 }) => {
     const myGame = await getGame(room);
+    if (!myGame) {
+        console.error('Game not found.');
+        gameSocket.emit('error', `$Game not found: ${room}`);
+        return;
+    }
     const playerIndex = myGame.players.indexOf(playerName);
+
     const successors = getSuccessors(board, piece[0], piece[1], playerIndex);
     gameSocket.emit('pieceSelected', successors);
 };
@@ -272,6 +296,11 @@ const playerMakeMove = async ({
         })
     ) {
         let myGame = await getGame(room);
+        if (!myGame) {
+            console.error('Game not found.');
+            gameSocket.emit('error', `$Game not found: ${room}`);
+            return;
+        }
         const myBoard = myGame.board;
         const { source, target } = pendingMove;
         const newBoard = pieceMovement(myBoard as Board, source, target);
@@ -281,6 +310,11 @@ const playerMakeMove = async ({
             turn += 1;
             await updateBoard(room, newBoard);
             const moveHistory = await getMoveHistory(room);
+            if (!moveHistory) {
+                console.error('Move history not found.');
+                gameSocket.emit('error', `$Move history not found: ${room}`);
+                return;
+            }
             await updateGame(room, {
                 turn,
                 moves: [...moveHistory, pendingMove],
