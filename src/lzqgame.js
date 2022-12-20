@@ -11,11 +11,10 @@ import {
     winner,
 } from './controllers/gameController';
 import { isEqual, cloneDeep } from 'lodash';
-import { generateAdjList, getSuccessors } from './utils';
+import { getSuccessors } from './utils';
 
 let io;
 let gameSocket;
-const adjacencyList = generateAdjList();
 
 export const initGame = (sio, socket) => {
     io = sio;
@@ -177,7 +176,6 @@ async function pieceSelection({ board, piece, playerName, room }) {
     const playerIndex = myGame.players.indexOf(playerName);
     const successors = getSuccessors(
         board,
-        adjacencyList,
         piece[0],
         piece[1],
         playerIndex,

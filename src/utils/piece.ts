@@ -1,3 +1,6 @@
+import { Board } from "./board";
+import { isValidRow, isValidCol } from "./core";
+
 /** An object containing basic game information for each piece type. */
 export const pieces: Record<string, { count: number, order: number}> = {
     bomb: { count: 2, order: -1 },
@@ -39,4 +42,29 @@ export const createPiece = (name: string, affiliation: number): Piece => {
         order: pieces[name].order,
         kills: 0,
     };
+};
+
+/**
+ * Returns a new board with the placed piece.
+ *
+ * @function
+ * @param {Board} board The Board object as defined in the backend Schema.
+ * @param {number} r The row of the target coordinate pair.
+ * @param {number} c The column of the target coordinate pair.
+ * @param {Piece} piece A Piece object as defined in Piece.js.
+ * @see placePiece
+ * @returns {Board} A new board with the placed piece.
+ */
+ export const placePiece = (
+    board: Board,
+    r: number,
+    c: number,
+    piece: Piece | null,
+): Board => {
+    if (!isValidRow(r) || !isValidCol(c)) {
+        throw Error('Invalid position passed');
+    }
+    return board.map((row, i) =>
+        row.map((cell, j) => (i === r && j === c ? piece : cell)),
+    );
 };
