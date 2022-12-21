@@ -12,7 +12,7 @@ import {
     updateGame,
     winner,
 } from './controllers/gameController';
-import { getSuccessors } from './utils';
+import { getSuccessors, validateSetup } from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -46,7 +46,10 @@ export const initGame = (sio: Server, socket: Socket) => {
 /**
  * The 'START' button was clicked and 'hostCreateNewGame' event occurred.
  */
-const hostCreateNewGame = async ({ playerName }: { playerName: string }) => {
+async function hostCreateNewGame(
+    this: any,
+    { playerName }: { playerName: string },
+) {
     // Create a unique Socket.IO Room
     // eslint-disable-next-line no-bitwise
     const gameId = ((Math.random() * 100000) | 0).toString();
@@ -55,35 +58,35 @@ const hostCreateNewGame = async ({ playerName }: { playerName: string }) => {
         host: playerName,
     });
     if (myGame) {
-        gameSocket.emit('newGameCreated', {
+        this.emit('newGameCreated', {
             gameId: gameId,
-            mySocketId: gameSocket.id,
+            mySocketId: this.id,
             players: await getPlayers(gameId),
         });
         console.log(
-            `New game created with ID: ${gameId} at socket: ${gameSocket.id}`,
+            `New game created with ID: ${gameId} at socket: ${this.id}`,
         );
 
         // Join the Room and wait for the players
-        gameSocket.join(gameId);
+        this.join(gameId);
     } else {
         console.error('Game was not created.');
     }
-};
+}
 
 /**
  * Two players have joined. Alert the host!
  * @param gameId The game ID / room ID
  */
-const hostPrepareGame = (gameId: string) => {
+function hostPrepareGame(this: any, gameId: string) {
     const data = {
-        mySocketId: gameSocket.id,
+        mySocketId: this.id,
         gameId,
         turn: 0,
     };
     console.log(`All players present. Preparing game ${data.gameId}`);
     io.in(data.gameId).emit('beginNewGame', data);
-};
+}
 
 /**
  * A player clicked the 'Join Game' button.
@@ -91,34 +94,35 @@ const hostPrepareGame = (gameId: string) => {
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
  */
-const playerJoinGame = async (data: {
-    playerName: string;
-    joinRoomId: string;
-    mySocketId: string;
-    players: string[];
-}) => {
+async function playerJoinGame(
+    this: any,
+    data: {
+        playerName: string;
+        joinRoomId: string;
+        mySocketId: string;
+        players: string[];
+    },
+) {
     console.log(
         `Player ${data.playerName} attempting to join game: ${data.joinRoomId}`,
     );
 
     const existingPlayers = await getPlayers(data.joinRoomId);
     if (!existingPlayers) {
-        gameSocket.emit(
-            'error',
+        this.emit('error', [
             'This game does not exist. Please enter a valid game ID.',
-        );
+        ]);
     } else if (existingPlayers.includes(data.playerName)) {
-        gameSocket.emit(
-            'error',
+        this.emit('error', [
             'There is already a player in this game by that name. Please choose another.',
-        );
+        ]);
     } else {
         console.log(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
-        data.mySocketId = gameSocket.id;
+        data.mySocketId = this.id;
 
         // Join the room
-        gameSocket.join(data.joinRoomId);
+        this.join(data.joinRoomId);
 
         console.log(
             `Player ${data.playerName} joining game: ${data.joinRoomId}`,
@@ -132,38 +136,39 @@ const playerJoinGame = async (data: {
             const players = await getPlayers(data.joinRoomId);
             if (!players) {
                 console.error('Player could not be added to given game');
-                gameSocket.emit(
-                    'error',
+                this.emit('error', [
                     `${data.playerName} could not be added to game: ${data.joinRoomId}`,
-                );
+                ]);
                 return;
             }
             data.players = players;
-            gameSocket.emit('youHaveJoinedTheRoom', data);
+            this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
-            gameSocket.emit(
-                'error',
+            this.emit('error', [
                 `${data.playerName} could not be added to game: ${data.joinRoomId}`,
-            );
+            ]);
         }
     }
-};
+}
 
-const playerInitialBoard = async ({
-    playerName,
-    myPositions,
-    room,
-}: {
-    playerName: string;
-    myPositions: [][];
-    room: string;
-}) => {
+async function playerInitialBoard(
+    this: any,
+    {
+        playerName,
+        myPositions,
+        room,
+    }: {
+        playerName: string;
+        myPositions: [][];
+        room: string;
+    },
+) {
     let myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
-        gameSocket.emit('error', `$Game not found: ${room}`);
+        this.emit('error', [`$Game not found: ${room}`]);
         return;
     }
     const playerIndex = myGame.players.indexOf(playerName);
@@ -173,12 +178,21 @@ const playerInitialBoard = async ({
             // the host
             console.log('Confirmed host');
             halfGameBoard = myPositions;
-        } else if (playerIndex === 1) {
+        } else {
             // the guest
             halfGameBoard = myPositions.reverse();
         }
+        const [isValid, validationErrorStack] = validateSetup(
+            halfGameBoard,
+            !playerIndex,
+        );
+        if (!isValid) {
+            console.error(validationErrorStack.join(', \n'));
+            this.emit('error', validationErrorStack);
+            return;
+        }
         await updateBoard(room, halfGameBoard);
-        gameSocket.emit('halfBoardReceived');
+        this.emit('halfBoardReceived');
     } else if (myGame.board.length === 6) {
         // only half of the board is filled
         let completeGameBoard;
@@ -195,33 +209,36 @@ const playerInitialBoard = async ({
         myGame = await getGame(room);
         io.sockets.in(room).emit('boardSet', myGame);
     }
-};
+}
 
-const pieceSelection = async ({
-    board,
-    piece,
-    playerName,
-    room,
-}: {
-    board: [][];
-    piece: number[];
-    playerName: string;
-    room: string;
-}) => {
+async function pieceSelection(
+    this: any,
+    {
+        board,
+        piece,
+        playerName,
+        room,
+    }: {
+        board: [][];
+        piece: number[];
+        playerName: string;
+        room: string;
+    },
+) {
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
-        gameSocket.emit('error', `$Game not found: ${room}`);
+        this.emit('error', [`$Game not found: ${room}`]);
         return;
     }
     const playerIndex = myGame.players.indexOf(playerName);
 
     const successors = getSuccessors(board, piece[0], piece[1], playerIndex);
-    gameSocket.emit('pieceSelected', successors);
-};
+    this.emit('pieceSelected', successors);
+}
 
 // returns a new board
-const pieceMovement = (board: Board, source: Piece, target: Piece) => {
+function pieceMovement(board: Board, source: Piece, target: Piece) {
     // copy the board
     board = cloneDeep(board);
 
@@ -271,22 +288,25 @@ const pieceMovement = (board: Board, source: Piece, target: Piece) => {
         board[source[0]][source[1]] = null;
     }
     return board;
-};
+}
 
-const playerMakeMove = async ({
-    playerName,
-    room,
-    turn,
-    pendingMove,
-}: {
-    playerName: string;
-    room: string;
-    turn: number;
-    pendingMove: {
-        source: Piece;
-        target: Piece;
-    };
-}) => {
+async function playerMakeMove(
+    this: any,
+    {
+        playerName,
+        room,
+        turn,
+        pendingMove,
+    }: {
+        playerName: string;
+        room: string;
+        turn: number;
+        pendingMove: {
+            source: Piece;
+            target: Piece;
+        };
+    },
+) {
     // TODO: add move validation function
     if (
         await isPlayerTurn({
@@ -298,21 +318,21 @@ const playerMakeMove = async ({
         let myGame = await getGame(room);
         if (!myGame) {
             console.error('Game not found.');
-            gameSocket.emit('error', `$Game not found: ${room}`);
+            this.emit('error', [`$Game not found: ${room}`]);
             return;
         }
         const myBoard = myGame.board;
         const { source, target } = pendingMove;
         const newBoard = pieceMovement(myBoard as Board, source, target);
         if (isEqual(newBoard, myBoard)) {
-            gameSocket.emit('error', 'No move made.');
+            this.emit('error', ['No move made.']);
         } else {
             turn += 1;
             await updateBoard(room, newBoard);
             const moveHistory = await getMoveHistory(room);
             if (!moveHistory) {
                 console.error('Move history not found.');
-                gameSocket.emit('error', `$Move history not found: ${room}`);
+                this.emit('error', [`$Move history not found: ${room}`]);
                 return;
             }
             await updateGame(room, {
@@ -329,16 +349,16 @@ const playerMakeMove = async ({
             }
         }
     } else {
-        gameSocket.emit('error', 'It is not your turn.');
+        this.emit('error', ['It is not your turn.']);
     }
-};
+}
 
 /**
  * The game is over, and a player has clicked a button to restart the game.
  * @param data
  */
-const playerRestart = (data: { gameId: string; playerId: string }) => {
+function playerRestart(this: any, data: { gameId: string; playerId: string }) {
     // Emit the player's data back to the clients in the game room.
-    data.playerId = gameSocket.id;
+    data.playerId = this.id;
     io.sockets.in(data.gameId).emit('playerJoinedRoom', data);
-};
+}
