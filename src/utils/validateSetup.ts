@@ -25,7 +25,6 @@ export function validateSetup(
     halfBoard: Piece[][],
     isHostHalf: boolean,
 ): [boolean, string[]] {
-    console.log(halfBoard, isHostHalf);
     const errors = [];
     // flip the board if neccessary
     if (isHostHalf) {
