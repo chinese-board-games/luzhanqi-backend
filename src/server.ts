@@ -9,7 +9,7 @@ import debugLib from 'debug';
 import http from 'http';
 import app from './app';
 import { initGame } from './lzqgame';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 const debug = debugLib('your-project-name:server');
 
@@ -22,35 +22,18 @@ const options = {
     maxHttpBufferSize: 1e8,
     cors: {
         origin: [
-            'http://localhost:3000',
-            'http://localhost:3001',
+            /http:\/\/localhost:\d+/, // local development
             /.*lzq\.surge\.sh.*/,
+            /.*lzq-staging\.surge\.sh.*/,
+            /.*luzhanqi\.netlify\.app.*/,
+            /.*luzhanqi-staging\.netlify\.app.*/,
         ],
         methods: ['GET', 'POST'],
     },
 };
 
-interface ServerToClientEvents {
-    noArg: () => void;
-    basicEmit: (a: number, b: string, c: Buffer) => void;
-    withAck: (d: string, callback: (e: number) => void) => void;
-}
-
-interface ClientToServerEvents {
-    hello: () => void;
-}
-
-interface InterServerEvents {
-    ping: () => void;
-}
-
-interface SocketData {
-    name: string;
-    age: number;
-}
-
 const io = new Server(server, options);
-io.on('connection', (socket: any) => {
+io.on('connection', (socket: Socket) => {
     console.log('client connected');
     initGame(io, socket);
 });
