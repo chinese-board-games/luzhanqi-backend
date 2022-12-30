@@ -90,7 +90,7 @@ export const mapBoard = (board: Board, callback: utilCallback): Board => {
     for (let i = 0; i < board.length; i++) {
         const row: (Piece | null)[] = [];
         for (let j = 0; j < board[i].length; j++) {
-            row.push(callback(board[j][i], j, i));
+            row.push(callback(board[i][j], i, j));
         }
         newBoard.push(row);
     }
