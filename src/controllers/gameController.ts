@@ -39,7 +39,7 @@ export const getGame = async (room: string) => {
     if (myGame) {
         return myGame;
     }
-    throw Error('Game not found');
+    console.error('Game not found');
 };
 
 /**
@@ -69,7 +69,7 @@ export const addPlayer = async ({
         const myUpdatedGame = await getGame(room);
         return myUpdatedGame;
     }
-    throw Error('Game not found');
+    console.error('Game not found');
 };
 
 /**
@@ -83,7 +83,7 @@ export const getPlayers = async (room: string) => {
     if (myGame) {
         return myGame.players;
     }
-    throw Error;
+    console.error('Game not found');
 };
 
 export const getMoveHistory = async (room: string) => {
@@ -91,7 +91,7 @@ export const getMoveHistory = async (room: string) => {
     if (myGame) {
         return myGame.moves;
     }
-    throw Error;
+    console.error('Game not found');
 };
 
 /**
@@ -113,6 +113,10 @@ export const isPlayerTurn = async ({
     /** assume the first matching game found is the only result, and that it is correct
      * assume that there are only two players, arrange by odd / even
      * */
+    if (!myGame) {
+        console.error('Game not found.');
+        return;
+    }
     const playerId = myGame.players.indexOf(playerName);
     return turn % 2 === playerId;
 };
