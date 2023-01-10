@@ -10,13 +10,16 @@ import Game from '../models/Game';
 export const createGame = async ({
     room,
     host,
+    hostId,
 }: {
     room: string;
     host: string;
+    hostId: string;
 }) => {
-    const game = await new Game();
+    const game = new Game();
     game.room = room;
     game.host = host;
+    game.hostId = hostId;
     game.players = [host];
     game.moves = [];
     game.turn = 0;
@@ -53,10 +56,16 @@ export const getGame = async (room: string) => {
 export const addPlayer = async ({
     room,
     playerName,
+    clientId,
 }: {
     room: string;
     playerName: string;
+    clientId: string | null;
 }) => {
+    console.log(
+        `Adding player ${playerName} to game ${room} with client ID ${clientId}`,
+    );
+
     const myGame = await getGame(room);
     if (myGame) {
         // assume only one result, take first one
@@ -64,9 +73,10 @@ export const addPlayer = async ({
         playerArray.push(playerName);
         await Game.findOneAndUpdate(
             { room },
-            { ...myGame, players: playerArray },
+            { $set: { clientId }, players: playerArray },
         );
         const myUpdatedGame = await getGame(room);
+        console.log(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
     }
     console.error('Game not found');

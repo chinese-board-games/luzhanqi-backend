@@ -12,7 +12,7 @@ import {
     updateGame,
     winner,
 } from './controllers/gameController';
-import { getSuccessors, validateSetup } from './utils';
+import { getSuccessors, printBoard, validateSetup } from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -48,7 +48,7 @@ export const initGame = (sio: Server, socket: Socket) => {
  */
 async function hostCreateNewGame(
     this: any,
-    { playerName }: { playerName: string },
+    { playerName, hostId }: { playerName: string; hostId: string },
 ) {
     // Create a unique Socket.IO Room
     // eslint-disable-next-line no-bitwise
@@ -56,6 +56,7 @@ async function hostCreateNewGame(
     const myGame = await createGame({
         room: gameId,
         host: playerName,
+        hostId,
     });
     if (myGame) {
         this.emit('newGameCreated', {
@@ -98,13 +99,14 @@ async function playerJoinGame(
     this: any,
     data: {
         playerName: string;
+        clientId: string | null;
         joinRoomId: string;
         mySocketId: string;
         players: string[];
     },
 ) {
     console.log(
-        `Player ${data.playerName} attempting to join game: ${data.joinRoomId}`,
+        `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId}`,
     );
 
     const existingPlayers = await getPlayers(data.joinRoomId);
@@ -128,9 +130,11 @@ async function playerJoinGame(
             `Player ${data.playerName} joining game: ${data.joinRoomId}`,
         );
 
+        console.log('Calling addPlayer with data: ', data);
         const myUpdatedGame = await addPlayer({
             room: data.joinRoomId,
             playerName: data.playerName,
+            clientId: data.clientId,
         });
         if (myUpdatedGame) {
             const players = await getPlayers(data.joinRoomId);
@@ -329,6 +333,8 @@ async function playerMakeMove(
         } else {
             turn += 1;
             await updateBoard(room, newBoard);
+            // print the board
+            printBoard(newBoard);
             const moveHistory = await getMoveHistory(room);
             if (!moveHistory) {
                 console.error('Move history not found.');

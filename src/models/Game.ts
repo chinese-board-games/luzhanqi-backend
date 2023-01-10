@@ -3,6 +3,8 @@ import { Schema, model } from 'mongoose';
 interface IGame extends Document {
     room: string;
     host: string;
+    hostId: string | null;
+    clientId: string | null;
     players: Array<string>;
     moves: Array<{
         source: Array<number>;
@@ -24,6 +26,8 @@ const GameSchema = new Schema<IGame>(
         room: String,
         host: String,
         players: [],
+        hostId: String,
+        clientId: String,
         moves: [],
         turn: Number,
         board: [],
