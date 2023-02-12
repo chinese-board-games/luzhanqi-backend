@@ -32,7 +32,6 @@ export const createGame = async ({
         return savedGame;
     } else {
         console.error('Game not saved');
-        return null;
     }
 };
 
@@ -45,10 +44,15 @@ export const getGame = async (room: string) => {
 };
 
 export const getGameById = async (id: string) => {
-    const myGame = await Game.findById(id);
-    if (myGame) {
-        return myGame;
+    try {
+        const myGame = await Game.findById(id);
+        if (myGame) {
+            return myGame;
+        }
+    } catch (err) {
+        console.error(err);
     }
+
     console.error('Game not found');
 };
 
