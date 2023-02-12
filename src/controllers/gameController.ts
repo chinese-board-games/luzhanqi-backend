@@ -24,21 +24,28 @@ export const createGame = async ({
     game.moves = [];
     game.turn = 0;
     game.board = null;
-    let updatedGame = null;
-    await game
-        .save()
-        .then(() => {
-            console.log(`Game ${room} saved in MongoDB`);
-            updatedGame = game;
-        })
-        .catch((err) => {
-            console.error(err);
-        });
-    return updatedGame;
+    game.winnerId = null;
+
+    const savedGame = await game.save();
+    if (savedGame) {
+        console.log(`Game ${room} saved in MongoDB`);
+        return savedGame;
+    } else {
+        console.error('Game not saved');
+        return null;
+    }
 };
 
 export const getGame = async (room: string) => {
     const myGame = await Game.findOne({ room });
+    if (myGame) {
+        return myGame;
+    }
+    console.error('Game not found');
+};
+
+export const getGameById = async (id: string) => {
+    const myGame = await Game.findById(id);
     if (myGame) {
         return myGame;
     }

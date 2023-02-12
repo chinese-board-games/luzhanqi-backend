@@ -19,6 +19,7 @@ interface IGame extends Document {
             kills: number;
         }>
     > | null;
+    winnerId: string | null;
 }
 
 const GameSchema = new Schema<IGame>(
@@ -31,6 +32,7 @@ const GameSchema = new Schema<IGame>(
         moves: [],
         turn: Number,
         board: [],
+        winnerId: String,
     },
     { timestamps: true },
 );

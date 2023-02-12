@@ -2,13 +2,14 @@ import { Schema, model } from 'mongoose';
 
 interface IUser extends Document {
     uid: string;
-    rank: string;
+    rank: number;
     games: Array<string>;
 }
 
 const UserSchema = new Schema<IUser>(
     {
-        rank: String,
+        uid: String,
+        rank: Number,
         games: [],
     },
     { timestamps: true },

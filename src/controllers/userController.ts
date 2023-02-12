@@ -1,4 +1,5 @@
 import User from '../models/User';
+import { isEmpty } from 'lodash';
 
 // create a user in the mongodb database
 
@@ -6,6 +7,7 @@ export const createUser = async (uid: string) => {
     const user = new User();
     user.uid = uid;
     user.games = [];
+    user.rank = 1;
     let updatedUser = null;
     await user
         .save()
@@ -21,7 +23,7 @@ export const createUser = async (uid: string) => {
 
 export const getUser = async (uid: string) => {
     const myUser = await User.findOne({ uid });
-    if (myUser) {
+    if (!isEmpty(myUser)) {
         return myUser;
     }
     console.error('User not found');
@@ -63,7 +65,7 @@ export const getRank = async (uid: string) => {
     console.error('User not found');
 };
 
-export const setRank = async (uid: string, rank: string) => {
+export const setRank = async (uid: string, rank: number) => {
     const myUser = await getUser(uid);
     if (myUser) {
         myUser.rank = rank;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-this-alias */
 import { isEqual, cloneDeep } from 'lodash';
 import type { Server, Socket } from 'socket.io';
@@ -12,6 +13,7 @@ import {
     updateGame,
     winner,
 } from './controllers/gameController';
+import { addGame } from './controllers/userController';
 import { getSuccessors, printBoard, validateSetup } from './utils';
 import { Board, Piece } from './types';
 
@@ -70,6 +72,8 @@ async function hostCreateNewGame(
 
         // Join the Room and wait for the players
         this.join(gameId);
+        // add the Game _id to the host's User document if they are logged in
+        hostId && (await addGame(hostId, myGame._id));
     } else {
         console.error('Game was not created.');
     }
@@ -90,7 +94,7 @@ function hostPrepareGame(this: any, gameId: string) {
 }
 
 /**
- * A player clicked the 'Join Game' button.
+ * A Player (not the host) clicked the 'Join Game' button.
  * Attempt to connect them to the room that matches
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
@@ -137,6 +141,9 @@ async function playerJoinGame(
             clientId: data.clientId,
         });
         if (myUpdatedGame) {
+            // add the Game _id to the player's User document if they are logged in
+            data.clientId && (await addGame(data.clientId, myUpdatedGame._id));
+
             const players = await getPlayers(data.joinRoomId);
             if (!players) {
                 console.error('Player could not be added to given game');
