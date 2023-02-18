@@ -10,28 +10,29 @@ import Game from '../models/Game';
 export const createGame = async ({
     room,
     host,
+    hostId,
 }: {
     room: string;
     host: string;
+    hostId: string;
 }) => {
-    const game = await new Game();
+    const game = new Game();
     game.room = room;
     game.host = host;
+    game.hostId = hostId;
     game.players = [host];
     game.moves = [];
     game.turn = 0;
     game.board = null;
-    let updatedGame = null;
-    await game
-        .save()
-        .then(() => {
-            console.log(`Game ${room} saved in MongoDB`);
-            updatedGame = game;
-        })
-        .catch((err) => {
-            console.error(err);
-        });
-    return updatedGame;
+    game.winnerId = null;
+
+    const savedGame = await game.save();
+    if (savedGame) {
+        console.log(`Game ${room} saved in MongoDB`);
+        return savedGame;
+    } else {
+        console.error('Game not saved');
+    }
 };
 
 export const getGame = async (room: string) => {
@@ -39,6 +40,19 @@ export const getGame = async (room: string) => {
     if (myGame) {
         return myGame;
     }
+    console.error('Game not found');
+};
+
+export const getGameById = async (id: string) => {
+    try {
+        const myGame = await Game.findById(id);
+        if (myGame) {
+            return myGame;
+        }
+    } catch (err) {
+        console.error(err);
+    }
+
     console.error('Game not found');
 };
 
@@ -53,10 +67,16 @@ export const getGame = async (room: string) => {
 export const addPlayer = async ({
     room,
     playerName,
+    clientId,
 }: {
     room: string;
     playerName: string;
+    clientId: string | null;
 }) => {
+    console.log(
+        `Adding player ${playerName} to game ${room} with client ID ${clientId}`,
+    );
+
     const myGame = await getGame(room);
     if (myGame) {
         // assume only one result, take first one
@@ -64,9 +84,10 @@ export const addPlayer = async ({
         playerArray.push(playerName);
         await Game.findOneAndUpdate(
             { room },
-            { ...myGame, players: playerArray },
+            { $set: { clientId }, players: playerArray },
         );
         const myUpdatedGame = await getGame(room);
+        console.log(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
     }
     console.error('Game not found');

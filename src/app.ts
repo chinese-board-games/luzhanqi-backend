@@ -4,6 +4,9 @@ import logger from 'morgan';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import express from 'express';
+import user from './routes/user';
+import game from './routes/game';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -18,11 +21,14 @@ mongoose.connect(mongoURI, {
 mongoose.Promise = global.Promise;
 
 const app = express();
+app.use(cors());
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/user', user);
+app.use('/game', game);
 
 export default app;
