@@ -173,14 +173,14 @@ export const winner = async (room: any) => {
                 flags += 1;
             }
             if (rowI > 0 && flags < 1) {
-                // top half loses
+                // top half loses (host won)
                 console.log('top half loses');
                 return 0;
             }
         }
     }
     if (flags < 2) {
-        // bottom half loses
+        // bottom half loses (guest won)
         console.log('bottom half loses');
         return 1;
     }

@@ -32,7 +32,8 @@ export const initGame = (sio: Server, socket: Socket) => {
     // Player Events
     gameSocket.on('playerJoinGame', playerJoinGame);
     gameSocket.on('playerRestart', playerRestart);
-    gameSocket.on('makeMove', playerMakeMove);
+    gameSocket.on('playerMakeMove', playerMakeMove);
+    gameSocket.on('playerForfeit', playerForfeit);
     gameSocket.on('playerInitialBoard', playerInitialBoard);
 
     // Utility Events
@@ -305,11 +306,13 @@ async function playerMakeMove(
     this: any,
     {
         playerName,
+        uid,
         room,
         turn,
         pendingMove,
     }: {
         playerName: string;
+        uid: string;
         room: string;
         turn: number;
         pendingMove: {
@@ -359,11 +362,36 @@ async function playerMakeMove(
             const endGame = await winner(room);
             if (endGame !== -1) {
                 io.sockets.in(room).emit('endGame', endGame);
+                await updateGame(room, { winnerId: uid });
             }
         }
     } else {
         this.emit('error', ['It is not your turn.']);
     }
+}
+
+async function playerForfeit(
+    this: any,
+    {
+        playerName,
+        uid,
+        room,
+    }: { playerName: string; uid: string; room: string },
+) {
+    const myGame = await getGame(room);
+    if (!myGame) {
+        console.error('Game not found.');
+        this.emit('error', [`$Game not found: ${room}`]);
+        return;
+    }
+    const playerIndex = myGame.players.indexOf(playerName);
+    if (myGame.hostId === uid) {
+        await updateGame(room, { winnerId: myGame.clientId });
+    } else if (myGame.clientId === uid) {
+        await updateGame(room, { winnerId: myGame.hostId });
+    }
+    const winnerIndex = playerIndex === 0 ? 1 : 0;
+    io.sockets.in(room).emit('endGame', winnerIndex);
 }
 
 /**
