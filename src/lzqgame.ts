@@ -14,7 +14,7 @@ import {
     winner,
 } from './controllers/gameController';
 import { addGame } from './controllers/userController';
-import { getSuccessors, printBoard, validateSetup } from './utils';
+import { getSuccessors, printBoard, validateSetup, pieces } from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -302,6 +302,60 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
     return board;
 }
 
+// return game stats in the form of a nested array
+async function getGameStats(this: any, room: string) {
+    const myGame = await getGame(room);
+    if (!myGame?.board) {
+        console.error('Game or game board not found.');
+        this.emit('error', [`$Game or game board not found: ${room}`]);
+        return;
+    }
+    // get number of pieces killed by each player
+    const emptyPieceArr = [
+        ...Object.keys(pieces).map((piece) => ({
+            name: piece,
+            count: 0,
+            order: pieces[piece].order,
+        })),
+    ];
+
+    const remain = [emptyPieceArr, emptyPieceArr];
+    myGame.board.forEach((row) => {
+        row.forEach((piece) => {
+            if (piece) {
+                const affiliation = piece.affiliation;
+                const pieceIndex = remain[affiliation].findIndex(
+                    (p) => p.name === piece.name,
+                );
+                remain[affiliation][pieceIndex].count += 1;
+            }
+        });
+    });
+    // get number of pieces killed by each player
+    const lost = [
+        remain[0].map(({ name, order, count: _count }) => {
+            const pieceIndex = remain[0].findIndex((p) => p.name === name);
+            return {
+                name,
+                count: pieces[name].count - remain[0][pieceIndex].count,
+                order,
+            };
+        }),
+        remain[1].map(({ name, order, count: _count }) => {
+            const pieceIndex = remain[1].findIndex((p) => p.name === name);
+            return {
+                name,
+                count: pieces[name].count - remain[1][pieceIndex].count,
+                order,
+            };
+        }),
+    ];
+    return {
+        remain,
+        lost,
+    };
+}
+
 async function playerMakeMove(
     this: any,
     {
@@ -359,9 +413,11 @@ async function playerMakeMove(
             console.log(`Someone made a move, the turn is now ${turn}`);
             console.log(`Sending back gameState on ${room}`);
             io.sockets.in(room).emit('playerMadeMove', myGame);
-            const endGame = await winner(room);
-            if (endGame !== -1) {
-                io.sockets.in(room).emit('endGame', endGame);
+            const winnerIndex = await winner(room);
+            const gameStats = await getGameStats(room);
+            if (winnerIndex !== -1) {
+                console.info('game ended from victory', gameStats);
+                io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
                 await updateGame(room, { winnerId: uid });
             }
         }
@@ -391,7 +447,9 @@ async function playerForfeit(
         await updateGame(room, { winnerId: myGame.hostId });
     }
     const winnerIndex = playerIndex === 0 ? 1 : 0;
-    io.sockets.in(room).emit('endGame', winnerIndex);
+    const gameStats = await getGameStats(room);
+    console.info('game ended due to forfeit', gameStats);
+    io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
 }
 
 /**
