@@ -319,7 +319,15 @@ async function getGameStats(this: any, room: string) {
         })),
     ];
 
-    const remain = [emptyPieceArr, emptyPieceArr];
+    const remain = [
+        // deep copies of emptyPieceArr, strongly typed
+        JSON.parse(JSON.stringify(emptyPieceArr)) as [
+            { name: string; count: number; order: number },
+        ],
+        JSON.parse(JSON.stringify(emptyPieceArr)) as [
+            { name: string; count: number; order: number },
+        ],
+    ];
     myGame.board.forEach((row) => {
         row.forEach((piece) => {
             if (piece) {
@@ -448,7 +456,7 @@ async function playerForfeit(
     }
     const winnerIndex = playerIndex === 0 ? 1 : 0;
     const gameStats = await getGameStats(room);
-    console.info('game ended due to forfeit', gameStats);
+    console.info('game ended due to forfeit', JSON.stringify(gameStats));
     io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
 }
 
