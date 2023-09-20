@@ -10,8 +10,18 @@ import cors from 'cors';
 
 dotenv.config();
 
+const {
+    DB_USER,
+    DB_PASSWORD,
+    DB_HOST,
+    DB_PORT,
+    DB_NAME,
+  } = process.env;
+
+const LOCAL_MONGO_URI = `mongodb://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}streamhatchet?directConnection=true&authSource=admin`
+
 // DB Setup
-const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/luzhanqi';
+const mongoURI = process.env.MONGODB_URI || LOCAL_MONGO_URI;
 mongoose.connect(mongoURI, {
     useFindAndModify: false,
     useNewUrlParser: true,
