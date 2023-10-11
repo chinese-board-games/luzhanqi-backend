@@ -15,6 +15,7 @@ export const pieces: Record<string, { count: number, order: number}> = {
     lieutenant: { count: 3, order: 2 },
     major_general: { count: 2, order: 7 },
     major: { count: 2, order: 4 },
+    enemy: { count: 0, order: -1 }
 };
 
 export interface Piece {

@@ -14,7 +14,7 @@ import {
     winner,
 } from './controllers/gameController';
 import { addGame } from './controllers/userController';
-import { getSuccessors, printBoard, validateSetup, pieces } from './utils';
+import { getSuccessors, printBoard, validateSetup, pieces, createPiece } from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -60,6 +60,9 @@ async function hostCreateNewGame(
         room: gameId,
         host: playerName,
         hostId,
+        playerToSocketIdMap: new Map([
+            [playerName, this.id]
+        ])
     });
     if (myGame) {
         this.emit('newGameCreated', {
@@ -111,7 +114,7 @@ async function playerJoinGame(
     },
 ) {
     console.log(
-        `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId}`,
+        `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
 
     const existingPlayers = await getPlayers(data.joinRoomId);
@@ -132,7 +135,7 @@ async function playerJoinGame(
         this.join(data.joinRoomId);
 
         console.log(
-            `Player ${data.playerName} joining game: ${data.joinRoomId}`,
+            `Player ${data.playerName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
         );
 
         console.log('Calling addPlayer with data: ', data);
@@ -140,6 +143,7 @@ async function playerJoinGame(
             room: data.joinRoomId,
             playerName: data.playerName,
             clientId: data.clientId,
+            mySocketId: data.mySocketId
         });
         if (myUpdatedGame) {
             // add the Game _id to the player's User document if they are logged in
@@ -165,6 +169,34 @@ async function playerJoinGame(
     }
 }
 
+const emplaceBoardFog = (game: {board: Piece[][]}, playerIndex: number) => {
+    // copy the board because we are diverging them
+    const myBoard = cloneDeep(game!.board);
+    
+    // the math: when playerIndex is 0 (host), the slice is (0, 6), which is the top half of the board
+    // when playerIndex is 1 (guest), the slice is (6, 12), the bottom half
+
+    // for each row
+    game!.board!.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row, y) => {
+        // for each space
+        row.forEach((space, x) => {
+            if (space !== null) { // only replace pieces that are there
+                myBoard[y + playerIndex * 6][x] = { // add 6 to adjust bottom half of board for the guest
+                    0: y,
+                    1: x,
+                    length: 2,
+                    ...createPiece('enemy', 1 - playerIndex) // indicate the affiliation as opposite of oneself
+                }
+            }
+            
+        })
+    })
+    const myGame = cloneDeep(game)
+    myGame.board = myBoard;
+    printBoard(myBoard);
+    return myGame;
+}
+
 async function playerInitialBoard(
     this: any,
     {
@@ -177,6 +209,7 @@ async function playerInitialBoard(
         room: string;
     },
 ) {
+    console.log(`playerInitialBoard from ${playerName} on socket ${this.id}`)
     let myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -219,7 +252,25 @@ async function playerInitialBoard(
         }
         await updateBoard(room, completeGameBoard);
         myGame = await getGame(room);
-        io.sockets.in(room).emit('boardSet', myGame);
+        
+        if (!myGame) {
+            console.error('Game not found.');
+            this.emit('error', [`$Game not found: ${room}`]);
+            return;
+        }
+
+        myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
+            console.info(`Sending board to ${instPlayerName} on socket: ${socketId}`);
+            const playerIndex = myGame!.players.indexOf(instPlayerName);
+            console.log(`playerIndex: ${playerIndex}`)
+
+            const modifiedGame = emplaceBoardFog(myGame as unknown as { board: Piece[][] }, playerIndex);
+            io.to(socketId).emit('boardSet', modifiedGame);        
+        });
+
+
+        // io.sockets.in(room).emit('boardSet', myGame);
+
     }
 }
 
@@ -237,6 +288,7 @@ async function pieceSelection(
         room: string;
     },
 ) {
+    console.log(`pieceSelection from ${playerName} on socket ${this.id}`)
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -304,6 +356,7 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
 
 // return game stats in the form of a nested array
 async function getGameStats(this: any, room: string) {
+    console.log(`getGameStats from socket ${this.id}`)
     const myGame = await getGame(room);
     if (!myGame?.board) {
         console.error('Game or game board not found.');
@@ -418,9 +471,25 @@ async function playerMakeMove(
                 moves: [...moveHistory, pendingMove],
             });
             myGame = await getGame(room);
+            if (!myGame) {
+                console.error('Game not found.');
+                this.emit('error', [`$Game not found: ${room}`]);
+                return;
+            }
+
             console.log(`Someone made a move, the turn is now ${turn}`);
             console.log(`Sending back gameState on ${room}`);
-            io.sockets.in(room).emit('playerMadeMove', myGame);
+            console.log(`myGame.playerToSocketIdMap: `);
+            console.log(myGame.playerToSocketIdMap);
+            myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
+                console.info(`Sending board to ${instPlayerName} on socket: ${socketId}`);
+                const playerIndex = myGame!.players.indexOf(instPlayerName);
+                console.log(`playerIndex: ${playerIndex}`)
+
+                const modifiedGame = emplaceBoardFog(myGame as unknown as { board: Piece[][] }, playerIndex);
+                io.to(socketId).emit('playerMadeMove', modifiedGame);        
+            });
+
             const winnerIndex = await winner(room);
             const gameStats = await getGameStats(room);
             if (winnerIndex !== -1) {

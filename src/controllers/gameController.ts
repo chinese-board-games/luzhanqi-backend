@@ -11,10 +11,12 @@ export const createGame = async ({
     room,
     host,
     hostId,
+    playerToSocketIdMap
 }: {
     room: string;
     host: string;
     hostId: string;
+    playerToSocketIdMap: Map<string, string>;
 }) => {
     const game = new Game();
     game.room = room;
@@ -25,6 +27,7 @@ export const createGame = async ({
     game.turn = 0;
     game.board = null;
     game.winnerId = null;
+    game.playerToSocketIdMap = playerToSocketIdMap;
 
     const savedGame = await game.save();
     if (savedGame) {
@@ -68,10 +71,12 @@ export const addPlayer = async ({
     room,
     playerName,
     clientId,
+    mySocketId
 }: {
     room: string;
     playerName: string;
     clientId: string | null;
+    mySocketId: string;
 }) => {
     console.log(
         `Adding player ${playerName} to game ${room} with client ID ${clientId}`,
@@ -80,11 +85,14 @@ export const addPlayer = async ({
     const myGame = await getGame(room);
     if (myGame) {
         // assume only one result, take first one
-        const playerArray = myGame.players;
-        playerArray.push(playerName);
+        const { players, playerToSocketIdMap } = myGame;
+        players.push(playerName);
+        playerToSocketIdMap.set(playerName, mySocketId);
         await Game.findOneAndUpdate(
             { room },
-            { $set: { clientId }, players: playerArray },
+            { $set: { clientId },
+            players, 
+            playerToSocketIdMap },
         );
         const myUpdatedGame = await getGame(room);
         console.log(`Updated game: ${myUpdatedGame}`);
