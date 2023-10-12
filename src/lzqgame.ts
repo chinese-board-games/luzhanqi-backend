@@ -176,15 +176,12 @@ const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
     // copy the board because we are diverging them
     const myBoard = cloneDeep(game.board);
 
-    // the math: when playerIndex is 0 (host), the slice is (0, 6), which is the top half of the board
-    // when playerIndex is 1 (guest), the slice is (6, 12), the bottom half
-    myBoard.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row: Piece[], y: number) => {
+    myBoard.forEach((row: Piece[], y: number) => {
         // for each space
         row.forEach((space: Piece | null, x: number) => {
-            if (space !== null) {
+            if (space !== null && space.affiliation !== playerIndex) {
                 // only replace pieces that are there
-                myBoard[y + playerIndex * 6][x] = {
-                    // add 6 to adjust bottom half of board for the guest
+                myBoard[y][x] = {
                     0: y,
                     1: x,
                     length: 2,
@@ -366,7 +363,6 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
 
 // return game stats in the form of a nested array
 async function getGameStats(this: any, room: string) {
-    console.info(`getGameStats from socket ${this?.id}`);
     const myGame = await getGame(room);
     if (!myGame?.board) {
         console.error('Game or game board not found.');
