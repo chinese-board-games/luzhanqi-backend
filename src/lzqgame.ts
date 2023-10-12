@@ -74,13 +74,13 @@ async function hostCreateNewGame(
             mySocketId: this.id,
             players: await getPlayers(gameId),
         });
-        console.log(
+        console.info(
             `New game created with ID: ${gameId} at socket: ${this.id}`,
         );
 
         // Join the Room and wait for the players
         this.join(gameId);
-        // add the Game _id to the host's User document if they are logged in
+        // Add the Game _id to the host's User document if they are logged in
         hostId && (await addGame(hostId, myGame._id));
     } else {
         console.error('Game was not created.');
@@ -97,7 +97,7 @@ function hostPrepareGame(this: any, gameId: string) {
         gameId,
         turn: 0,
     };
-    console.log(`All players present. Preparing game ${data.gameId}`);
+    console.info(`All players present. Preparing game ${data.gameId}`);
     io.in(data.gameId).emit('beginNewGame', data);
 }
 
@@ -117,7 +117,7 @@ async function playerJoinGame(
         players: string[];
     },
 ) {
-    console.log(
+    console.info(
         `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
 
@@ -131,18 +131,17 @@ async function playerJoinGame(
             'There is already a player in this game by that name. Please choose another.',
         ]);
     } else {
-        console.log(`Room: ${data.joinRoomId}`);
+        console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
         data.mySocketId = this.id;
 
         // Join the room
         this.join(data.joinRoomId);
 
-        console.log(
+        console.info(
             `Player ${data.playerName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
         );
 
-        console.log('Calling addPlayer with data: ', data);
         const myUpdatedGame = await addPlayer({
             room: data.joinRoomId,
             playerName: data.playerName,
@@ -179,11 +178,9 @@ const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
 
     // the math: when playerIndex is 0 (host), the slice is (0, 6), which is the top half of the board
     // when playerIndex is 1 (guest), the slice is (6, 12), the bottom half
-
-    // for each row
-    myBoard.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row, y) => {
+    myBoard.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row: Piece[], y: number) => {
         // for each space
-        row.forEach((space, x) => {
+        row.forEach((space: Piece | null, x: number) => {
             if (space !== null) {
                 // only replace pieces that are there
                 myBoard[y + playerIndex * 6][x] = {
@@ -214,7 +211,7 @@ async function playerInitialBoard(
         room: string;
     },
 ) {
-    console.log(`playerInitialBoard from ${playerName} on socket ${this.id}`);
+    console.info(`playerInitialBoard from ${playerName} on socket ${this.id}`);
     let myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -226,7 +223,7 @@ async function playerInitialBoard(
         let halfGameBoard;
         if (playerIndex === 0) {
             // the host
-            console.log('Confirmed host');
+            console.info('Confirmed host');
             halfGameBoard = myPositions;
         } else {
             // the guest
@@ -264,7 +261,7 @@ async function playerInitialBoard(
             return;
         }
 
-        myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
+        myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
             console.info(
                 `Sending board to ${instPlayerName} on socket: ${socketId}`,
             );
@@ -276,7 +273,7 @@ async function playerInitialBoard(
             }
 
             const playerIndex = myGame.players.indexOf(instPlayerName);
-            console.log(`playerIndex: ${playerIndex}`);
+            console.info(`playerIndex: ${playerIndex}`);
 
             const modifiedGame = emplaceBoardFog(
                 myGame as unknown as { board: Piece[][] },
@@ -301,7 +298,7 @@ async function pieceSelection(
         room: string;
     },
 ) {
-    console.log(`pieceSelection from ${playerName} on socket ${this.id}`);
+    console.info(`pieceSelection from ${playerName} on socket ${this.id}`);
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -369,7 +366,7 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
 
 // return game stats in the form of a nested array
 async function getGameStats(this: any, room: string) {
-    console.log(`getGameStats from socket ${this?.id}`);
+    console.info(`getGameStats from socket ${this?.id}`);
     const myGame = await getGame(room);
     if (!myGame?.board) {
         console.error('Game or game board not found.');
@@ -490,11 +487,11 @@ async function playerMakeMove(
                 return;
             }
 
-            console.log(`Someone made a move, the turn is now ${turn}`);
-            console.log(`Sending back gameState on ${room}`);
-            console.log(`myGame.playerToSocketIdMap: `);
-            console.log(myGame.playerToSocketIdMap);
-            myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
+            console.info(`Someone made a move, the turn is now ${turn}`);
+            console.info(`Sending back gameState on ${room}`);
+            console.info(`myGame.playerToSocketIdMap: `);
+            console.info(myGame.playerToSocketIdMap);
+            myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
                 console.info(
                     `Sending board to ${instPlayerName} on socket: ${socketId}`,
                 );
@@ -506,7 +503,7 @@ async function playerMakeMove(
                 }
 
                 const playerIndex = myGame.players.indexOf(instPlayerName);
-                console.log(`playerIndex: ${playerIndex}`);
+                console.info(`playerIndex: ${playerIndex}`);
 
                 const modifiedGame = emplaceBoardFog(
                     myGame as unknown as { board: Piece[][] },
@@ -536,8 +533,6 @@ async function playerForfeit(
         room,
     }: { playerName: string; uid: string; room: string },
 ) {
-    console.log('this');
-    console.log(this);
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -552,7 +547,7 @@ async function playerForfeit(
     }
     const winnerIndex = playerIndex === 0 ? 1 : 0;
     const gameStats = await getGameStats(room);
-    console.info('game ended due to forfeit', JSON.stringify(gameStats));
+    console.info('game ended due to forfeit');
     io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
 }
 

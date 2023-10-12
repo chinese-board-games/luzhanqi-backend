@@ -42,6 +42,6 @@ export const printBoard = (board: Board): void => {
                     ' ';
             }
         }
-        console.log(row);
+        console.info(row);
     }
 };

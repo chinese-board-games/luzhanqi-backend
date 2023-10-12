@@ -34,7 +34,7 @@ const options = {
 
 const io = new Server(server, options);
 io.on('connection', (socket: Socket) => {
-    console.log('client connected');
+    console.info('client connected');
     initGame(io, socket);
 });
 
@@ -81,6 +81,6 @@ function onListening() {
     const addr = server.address();
     const bind =
         typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
-    console.log(`Listening on ${bind}`);
+    console.info(`Listening on ${bind}`);
     debug(`Listening on ${bind}`);
 }

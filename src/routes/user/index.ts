@@ -19,16 +19,16 @@ const user = Router();
 
 // create a user
 user.post('/:userId', async (req, res) => {
-    console.log('createUser');
+    console.info('createUser');
     const myUser = await createUser(req.params.userId);
     res.status(200).send(myUser);
 });
 user.get('/:userId', async (req, res) => {
-    console.log('getUser');
+    console.info('getUser');
     const myUser = await getUser(req.params.userId);
     if (myUser) {
         res.status(200).send(myUser);
-        console.log('sending user');
+        console.info('sending user');
     } else {
         res.status(200).send('User not found');
     }
