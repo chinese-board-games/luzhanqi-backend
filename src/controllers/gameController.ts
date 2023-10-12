@@ -11,10 +11,12 @@ export const createGame = async ({
     room,
     host,
     hostId,
+    playerToSocketIdMap,
 }: {
     room: string;
     host: string;
     hostId: string;
+    playerToSocketIdMap: Map<string, string>;
 }) => {
     const game = new Game();
     game.room = room;
@@ -25,10 +27,11 @@ export const createGame = async ({
     game.turn = 0;
     game.board = null;
     game.winnerId = null;
+    game.playerToSocketIdMap = playerToSocketIdMap;
 
     const savedGame = await game.save();
     if (savedGame) {
-        console.log(`Game ${room} saved in MongoDB`);
+        console.info(`Game ${room} saved in MongoDB`);
         return savedGame;
     } else {
         console.error('Game not saved');
@@ -68,26 +71,29 @@ export const addPlayer = async ({
     room,
     playerName,
     clientId,
+    mySocketId,
 }: {
     room: string;
     playerName: string;
     clientId: string | null;
+    mySocketId: string;
 }) => {
-    console.log(
+    console.info(
         `Adding player ${playerName} to game ${room} with client ID ${clientId}`,
     );
 
     const myGame = await getGame(room);
     if (myGame) {
         // assume only one result, take first one
-        const playerArray = myGame.players;
-        playerArray.push(playerName);
+        const { players, playerToSocketIdMap } = myGame;
+        players.push(playerName);
+        playerToSocketIdMap.set(playerName, mySocketId);
         await Game.findOneAndUpdate(
             { room },
-            { $set: { clientId }, players: playerArray },
+            { $set: { clientId }, players, playerToSocketIdMap },
         );
         const myUpdatedGame = await getGame(room);
-        console.log(`Updated game: ${myUpdatedGame}`);
+        console.info(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
     }
     console.error('Game not found');
@@ -174,14 +180,14 @@ export const winner = async (room: any) => {
             }
             if (rowI > 0 && flags < 1) {
                 // top half loses (host won)
-                console.log('top half loses');
+                console.info('top half loses');
                 return 0;
             }
         }
     }
     if (flags < 2) {
         // bottom half loses (guest won)
-        console.log('bottom half loses');
+        console.info('bottom half loses');
         return 1;
     }
     return -1;
