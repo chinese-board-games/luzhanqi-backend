@@ -14,7 +14,13 @@ import {
     winner,
 } from './controllers/gameController';
 import { addGame } from './controllers/userController';
-import { getSuccessors, printBoard, validateSetup, pieces, createPiece } from './utils';
+import {
+    getSuccessors,
+    printBoard,
+    validateSetup,
+    pieces,
+    createPiece,
+} from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -60,9 +66,7 @@ async function hostCreateNewGame(
         room: gameId,
         host: playerName,
         hostId,
-        playerToSocketIdMap: new Map([
-            [playerName, this.id]
-        ])
+        playerToSocketIdMap: new Map([[playerName, this.id]]),
     });
     if (myGame) {
         this.emit('newGameCreated', {
@@ -143,7 +147,7 @@ async function playerJoinGame(
             room: data.joinRoomId,
             playerName: data.playerName,
             clientId: data.clientId,
-            mySocketId: data.mySocketId
+            mySocketId: data.mySocketId,
         });
         if (myUpdatedGame) {
             // add the Game _id to the player's User document if they are logged in
@@ -169,33 +173,34 @@ async function playerJoinGame(
     }
 }
 
-const emplaceBoardFog = (game: {board: Piece[][]}, playerIndex: number) => {
+const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
     // copy the board because we are diverging them
-    const myBoard = cloneDeep(game!.board);
-    
+    const myBoard = cloneDeep(game.board);
+
     // the math: when playerIndex is 0 (host), the slice is (0, 6), which is the top half of the board
     // when playerIndex is 1 (guest), the slice is (6, 12), the bottom half
 
     // for each row
-    game!.board!.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row, y) => {
+    myBoard.slice(6 * playerIndex, 6 * (1 + playerIndex)).forEach((row, y) => {
         // for each space
         row.forEach((space, x) => {
-            if (space !== null) { // only replace pieces that are there
-                myBoard[y + playerIndex * 6][x] = { // add 6 to adjust bottom half of board for the guest
+            if (space !== null) {
+                // only replace pieces that are there
+                myBoard[y + playerIndex * 6][x] = {
+                    // add 6 to adjust bottom half of board for the guest
                     0: y,
                     1: x,
                     length: 2,
-                    ...createPiece('enemy', 1 - playerIndex) // indicate the affiliation as opposite of oneself
-                }
+                    ...createPiece('enemy', 1 - playerIndex), // indicate the affiliation as opposite of oneself
+                };
             }
-            
-        })
-    })
-    const myGame = cloneDeep(game)
+        });
+    });
+    const myGame = cloneDeep(game);
     myGame.board = myBoard;
     printBoard(myBoard);
     return myGame;
-}
+};
 
 async function playerInitialBoard(
     this: any,
@@ -209,7 +214,7 @@ async function playerInitialBoard(
         room: string;
     },
 ) {
-    console.log(`playerInitialBoard from ${playerName} on socket ${this.id}`)
+    console.log(`playerInitialBoard from ${playerName} on socket ${this.id}`);
     let myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -252,7 +257,7 @@ async function playerInitialBoard(
         }
         await updateBoard(room, completeGameBoard);
         myGame = await getGame(room);
-        
+
         if (!myGame) {
             console.error('Game not found.');
             this.emit('error', [`$Game not found: ${room}`]);
@@ -260,17 +265,25 @@ async function playerInitialBoard(
         }
 
         myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
-            console.info(`Sending board to ${instPlayerName} on socket: ${socketId}`);
-            const playerIndex = myGame!.players.indexOf(instPlayerName);
-            console.log(`playerIndex: ${playerIndex}`)
+            console.info(
+                `Sending board to ${instPlayerName} on socket: ${socketId}`,
+            );
 
-            const modifiedGame = emplaceBoardFog(myGame as unknown as { board: Piece[][] }, playerIndex);
-            io.to(socketId).emit('boardSet', modifiedGame);        
+            if (!myGame) {
+                console.error('Game not found.');
+                this.emit('error', [`$Game not found: ${room}`]);
+                return;
+            }
+
+            const playerIndex = myGame.players.indexOf(instPlayerName);
+            console.log(`playerIndex: ${playerIndex}`);
+
+            const modifiedGame = emplaceBoardFog(
+                myGame as unknown as { board: Piece[][] },
+                playerIndex,
+            );
+            io.to(socketId).emit('boardSet', modifiedGame);
         });
-
-
-        // io.sockets.in(room).emit('boardSet', myGame);
-
     }
 }
 
@@ -288,7 +301,7 @@ async function pieceSelection(
         room: string;
     },
 ) {
-    console.log(`pieceSelection from ${playerName} on socket ${this.id}`)
+    console.log(`pieceSelection from ${playerName} on socket ${this.id}`);
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -356,7 +369,7 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
 
 // return game stats in the form of a nested array
 async function getGameStats(this: any, room: string) {
-    console.log(`getGameStats from socket ${this.id}`)
+    console.log(`getGameStats from socket ${this?.id}`);
     const myGame = await getGame(room);
     if (!myGame?.board) {
         console.error('Game or game board not found.');
@@ -482,12 +495,24 @@ async function playerMakeMove(
             console.log(`myGame.playerToSocketIdMap: `);
             console.log(myGame.playerToSocketIdMap);
             myGame.playerToSocketIdMap.forEach((socketId, instPlayerName) => {
-                console.info(`Sending board to ${instPlayerName} on socket: ${socketId}`);
-                const playerIndex = myGame!.players.indexOf(instPlayerName);
-                console.log(`playerIndex: ${playerIndex}`)
+                console.info(
+                    `Sending board to ${instPlayerName} on socket: ${socketId}`,
+                );
 
-                const modifiedGame = emplaceBoardFog(myGame as unknown as { board: Piece[][] }, playerIndex);
-                io.to(socketId).emit('playerMadeMove', modifiedGame);        
+                if (!myGame) {
+                    console.error('Game not found.');
+                    this.emit('error', [`$Game not found: ${room}`]);
+                    return;
+                }
+
+                const playerIndex = myGame.players.indexOf(instPlayerName);
+                console.log(`playerIndex: ${playerIndex}`);
+
+                const modifiedGame = emplaceBoardFog(
+                    myGame as unknown as { board: Piece[][] },
+                    playerIndex,
+                );
+                io.to(socketId).emit('playerMadeMove', modifiedGame);
             });
 
             const winnerIndex = await winner(room);
@@ -511,6 +536,8 @@ async function playerForfeit(
         room,
     }: { playerName: string; uid: string; room: string },
 ) {
+    console.log('this');
+    console.log(this);
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');

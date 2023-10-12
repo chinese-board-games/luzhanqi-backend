@@ -11,7 +11,7 @@ export const createGame = async ({
     room,
     host,
     hostId,
-    playerToSocketIdMap
+    playerToSocketIdMap,
 }: {
     room: string;
     host: string;
@@ -71,7 +71,7 @@ export const addPlayer = async ({
     room,
     playerName,
     clientId,
-    mySocketId
+    mySocketId,
 }: {
     room: string;
     playerName: string;
@@ -90,9 +90,7 @@ export const addPlayer = async ({
         playerToSocketIdMap.set(playerName, mySocketId);
         await Game.findOneAndUpdate(
             { room },
-            { $set: { clientId },
-            players, 
-            playerToSocketIdMap },
+            { $set: { clientId }, players, playerToSocketIdMap },
         );
         const myUpdatedGame = await getGame(room);
         console.log(`Updated game: ${myUpdatedGame}`);
