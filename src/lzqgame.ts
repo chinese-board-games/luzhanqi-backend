@@ -18,7 +18,8 @@ import {
     getSuccessors,
     printBoard,
     validateSetup,
-    pieces
+    pieces,
+    createPiece
 } from './utils';
 import { Board, Piece } from './types';
 
