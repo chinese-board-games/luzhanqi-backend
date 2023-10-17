@@ -18,8 +18,7 @@ import {
     getSuccessors,
     printBoard,
     validateSetup,
-    pieces,
-    createPiece,
+    pieces
 } from './utils';
 import { Board, Piece } from './types';
 
@@ -477,7 +476,8 @@ async function playerMakeMove(
                 moves: [...moveHistory, pendingMove],
             });
             myGame = await getGame(room);
-            if (!myGame) {
+            
+          if (!myGame) {
                 console.error('Game not found.');
                 this.emit('error', [`$Game not found: ${room}`]);
                 return;
