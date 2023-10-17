@@ -6,6 +6,7 @@ interface IGame extends Document {
     hostId: string | null;
     clientId: string | null;
     players: Array<string>;
+    playerToSocketIdMap: Map<string, string>;
     moves: Array<{
         source: Array<number>;
         target: Array<number>;
@@ -27,6 +28,7 @@ const GameSchema = new Schema<IGame>(
         room: String,
         host: String,
         players: [],
+        playerToSocketIdMap: Map,
         hostId: String,
         clientId: String,
         moves: [],

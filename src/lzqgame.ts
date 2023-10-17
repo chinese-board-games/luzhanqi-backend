@@ -14,7 +14,12 @@ import {
     winner,
 } from './controllers/gameController';
 import { addGame } from './controllers/userController';
-import { getSuccessors, printBoard, validateSetup, pieces } from './utils';
+import {
+    getSuccessors,
+    printBoard,
+    validateSetup,
+    pieces
+} from './utils';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -60,6 +65,7 @@ async function hostCreateNewGame(
         room: gameId,
         host: playerName,
         hostId,
+        playerToSocketIdMap: new Map([[playerName, this.id]]),
     });
     if (myGame) {
         this.emit('newGameCreated', {
@@ -67,13 +73,13 @@ async function hostCreateNewGame(
             mySocketId: this.id,
             players: await getPlayers(gameId),
         });
-        console.log(
+        console.info(
             `New game created with ID: ${gameId} at socket: ${this.id}`,
         );
 
         // Join the Room and wait for the players
         this.join(gameId);
-        // add the Game _id to the host's User document if they are logged in
+        // Add the Game _id to the host's User document if they are logged in
         hostId && (await addGame(hostId, myGame._id));
     } else {
         console.error('Game was not created.');
@@ -90,7 +96,7 @@ function hostPrepareGame(this: any, gameId: string) {
         gameId,
         turn: 0,
     };
-    console.log(`All players present. Preparing game ${data.gameId}`);
+    console.info(`All players present. Preparing game ${data.gameId}`);
     io.in(data.gameId).emit('beginNewGame', data);
 }
 
@@ -110,8 +116,8 @@ async function playerJoinGame(
         players: string[];
     },
 ) {
-    console.log(
-        `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId}`,
+    console.info(
+        `Player ${data.playerName} attempting to join game: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
 
     const existingPlayers = await getPlayers(data.joinRoomId);
@@ -124,22 +130,22 @@ async function playerJoinGame(
             'There is already a player in this game by that name. Please choose another.',
         ]);
     } else {
-        console.log(`Room: ${data.joinRoomId}`);
+        console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
         data.mySocketId = this.id;
 
         // Join the room
         this.join(data.joinRoomId);
 
-        console.log(
-            `Player ${data.playerName} joining game: ${data.joinRoomId}`,
+        console.info(
+            `Player ${data.playerName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
         );
 
-        console.log('Calling addPlayer with data: ', data);
         const myUpdatedGame = await addPlayer({
             room: data.joinRoomId,
             playerName: data.playerName,
             clientId: data.clientId,
+            mySocketId: data.mySocketId,
         });
         if (myUpdatedGame) {
             // add the Game _id to the player's User document if they are logged in
@@ -165,6 +171,30 @@ async function playerJoinGame(
     }
 }
 
+const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
+    // copy the board because we are diverging them
+    const myBoard = cloneDeep(game.board);
+
+    myBoard.forEach((row: Piece[], y: number) => {
+        // for each space
+        row.forEach((space: Piece | null, x: number) => {
+            if (space !== null && space.affiliation !== playerIndex) {
+                // only replace pieces that are there
+                myBoard[y][x] = {
+                    0: y,
+                    1: x,
+                    length: 2,
+                    ...createPiece('enemy', 1 - playerIndex), // indicate the affiliation as opposite of oneself
+                };
+            }
+        });
+    });
+    const myGame = cloneDeep(game);
+    myGame.board = myBoard;
+    printBoard(myBoard);
+    return myGame;
+};
+
 async function playerInitialBoard(
     this: any,
     {
@@ -177,6 +207,7 @@ async function playerInitialBoard(
         room: string;
     },
 ) {
+    console.info(`playerInitialBoard from ${playerName} on socket ${this.id}`);
     let myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -188,7 +219,7 @@ async function playerInitialBoard(
         let halfGameBoard;
         if (playerIndex === 0) {
             // the host
-            console.log('Confirmed host');
+            console.info('Confirmed host');
             halfGameBoard = myPositions;
         } else {
             // the guest
@@ -219,7 +250,33 @@ async function playerInitialBoard(
         }
         await updateBoard(room, completeGameBoard);
         myGame = await getGame(room);
-        io.sockets.in(room).emit('boardSet', myGame);
+
+        if (!myGame) {
+            console.error('Game not found.');
+            this.emit('error', [`$Game not found: ${room}`]);
+            return;
+        }
+
+        myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
+            console.info(
+                `Sending board to ${instPlayerName} on socket: ${socketId}`,
+            );
+
+            if (!myGame) {
+                console.error('Game not found.');
+                this.emit('error', [`$Game not found: ${room}`]);
+                return;
+            }
+
+            const playerIndex = myGame.players.indexOf(instPlayerName);
+            console.info(`playerIndex: ${playerIndex}`);
+
+            const modifiedGame = emplaceBoardFog(
+                myGame as unknown as { board: Piece[][] },
+                playerIndex,
+            );
+            io.to(socketId).emit('boardSet', modifiedGame);
+        });
     }
 }
 
@@ -237,6 +294,7 @@ async function pieceSelection(
         room: string;
     },
 ) {
+    console.info(`pieceSelection from ${playerName} on socket ${this.id}`);
     const myGame = await getGame(room);
     if (!myGame) {
         console.error('Game not found.');
@@ -418,9 +476,38 @@ async function playerMakeMove(
                 moves: [...moveHistory, pendingMove],
             });
             myGame = await getGame(room);
-            console.log(`Someone made a move, the turn is now ${turn}`);
-            console.log(`Sending back gameState on ${room}`);
-            io.sockets.in(room).emit('playerMadeMove', myGame);
+            
+          if (!myGame) {
+                console.error('Game not found.');
+                this.emit('error', [`$Game not found: ${room}`]);
+                return;
+            }
+
+            console.info(`Someone made a move, the turn is now ${turn}`);
+            console.info(`Sending back gameState on ${room}`);
+            console.info(`myGame.playerToSocketIdMap: `);
+            console.info(myGame.playerToSocketIdMap);
+            myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
+                console.info(
+                    `Sending board to ${instPlayerName} on socket: ${socketId}`,
+                );
+
+                if (!myGame) {
+                    console.error('Game not found.');
+                    this.emit('error', [`$Game not found: ${room}`]);
+                    return;
+                }
+
+                const playerIndex = myGame.players.indexOf(instPlayerName);
+                console.info(`playerIndex: ${playerIndex}`);
+
+                const modifiedGame = emplaceBoardFog(
+                    myGame as unknown as { board: Piece[][] },
+                    playerIndex,
+                );
+                io.to(socketId).emit('playerMadeMove', modifiedGame);
+            });
+
             const winnerIndex = await winner(room);
             const gameStats = await getGameStats(room);
             if (winnerIndex !== -1) {
@@ -456,7 +543,7 @@ async function playerForfeit(
     }
     const winnerIndex = playerIndex === 0 ? 1 : 0;
     const gameStats = await getGameStats(room);
-    console.info('game ended due to forfeit', JSON.stringify(gameStats));
+    console.info('game ended due to forfeit');
     io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
 }
 
