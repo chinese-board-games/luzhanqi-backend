@@ -12,7 +12,7 @@ export const createUser = async (uid: string) => {
     await user
         .save()
         .then(() => {
-            console.log(`User ${uid} saved in MongoDB`);
+            console.info(`User ${uid} saved in MongoDB`);
             updatedUser = user;
         })
         .catch((err) => {

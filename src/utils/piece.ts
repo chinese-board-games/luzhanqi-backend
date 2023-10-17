@@ -1,8 +1,8 @@
-import { Board } from "./board";
-import { isValidRow, isValidCol } from "./core";
+import { Board } from './board';
+import { isValidRow, isValidCol } from './core';
 
 /** An object containing basic game information for each piece type. */
-export const pieces: Record<string, { count: number, order: number}> = {
+export const pieces: Record<string, { count: number; order: number }> = {
     bomb: { count: 2, order: -1 },
     brigadier_general: { count: 2, order: 6 },
     captain: { count: 3, order: 3 },
@@ -15,13 +15,14 @@ export const pieces: Record<string, { count: number, order: number}> = {
     lieutenant: { count: 3, order: 2 },
     major_general: { count: 2, order: 7 },
     major: { count: 2, order: 4 },
+    enemy: { count: 0, order: -1 },
 };
 
 export interface Piece {
-    name: string
-    affiliation: number
-    order: number
-    kills: number
+    name: string;
+    affiliation: number;
+    order: number;
+    kills: number;
 }
 
 /**
@@ -55,7 +56,7 @@ export const createPiece = (name: string, affiliation: number): Piece => {
  * @see placePiece
  * @returns {Board} A new board with the placed piece.
  */
- export const placePiece = (
+export const placePiece = (
     board: Board,
     r: number,
     c: number,
