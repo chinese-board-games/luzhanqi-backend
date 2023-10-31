@@ -19,7 +19,7 @@ import {
     printBoard,
     validateSetup,
     pieces,
-    createPiece
+    createPiece,
 } from './utils';
 import { Board, Piece } from './types';
 
@@ -258,26 +258,28 @@ async function playerInitialBoard(
             return;
         }
 
-        myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
-            console.info(
-                `Sending board to ${instPlayerName} on socket: ${socketId}`,
-            );
+        myGame.playerToSocketIdMap.forEach(
+            (socketId: string, instPlayerName: string) => {
+                console.info(
+                    `Sending board to ${instPlayerName} on socket: ${socketId}`,
+                );
 
-            if (!myGame) {
-                console.error('Game not found.');
-                this.emit('error', [`$Game not found: ${room}`]);
-                return;
-            }
+                if (!myGame) {
+                    console.error('Game not found.');
+                    this.emit('error', [`$Game not found: ${room}`]);
+                    return;
+                }
 
-            const playerIndex = myGame.players.indexOf(instPlayerName);
-            console.info(`playerIndex: ${playerIndex}`);
+                const playerIndex = myGame.players.indexOf(instPlayerName);
+                console.info(`playerIndex: ${playerIndex}`);
 
-            const modifiedGame = emplaceBoardFog(
-                myGame as unknown as { board: Piece[][] },
-                playerIndex,
-            );
-            io.to(socketId).emit('boardSet', modifiedGame);
-        });
+                const modifiedGame = emplaceBoardFog(
+                    myGame as unknown as { board: Piece[][] },
+                    playerIndex,
+                );
+                io.to(socketId).emit('boardSet', modifiedGame);
+            },
+        );
     }
 }
 
@@ -477,8 +479,8 @@ async function playerMakeMove(
                 moves: [...moveHistory, pendingMove],
             });
             myGame = await getGame(room);
-            
-          if (!myGame) {
+
+            if (!myGame) {
                 console.error('Game not found.');
                 this.emit('error', [`$Game not found: ${room}`]);
                 return;
@@ -488,33 +490,35 @@ async function playerMakeMove(
             console.info(`Sending back gameState on ${room}`);
             console.info(`myGame.playerToSocketIdMap: `);
             console.info(myGame.playerToSocketIdMap);
-            myGame.playerToSocketIdMap.forEach((socketId: string, instPlayerName: string) => {
-                console.info(
-                    `Sending board to ${instPlayerName} on socket: ${socketId}`,
-                );
+            myGame.playerToSocketIdMap.forEach(
+                (socketId: string, instPlayerName: string) => {
+                    console.info(
+                        `Sending board to ${instPlayerName} on socket: ${socketId}`,
+                    );
 
-                if (!myGame) {
-                    console.error('Game not found.');
-                    this.emit('error', [`$Game not found: ${room}`]);
-                    return;
-                }
+                    if (!myGame) {
+                        console.error('Game not found.');
+                        this.emit('error', [`$Game not found: ${room}`]);
+                        return;
+                    }
 
-                const playerIndex = myGame.players.indexOf(instPlayerName);
-                console.info(`playerIndex: ${playerIndex}`);
+                    const playerIndex = myGame.players.indexOf(instPlayerName);
+                    console.info(`playerIndex: ${playerIndex}`);
 
-                const modifiedGame = emplaceBoardFog(
-                    myGame as unknown as { board: Piece[][] },
-                    playerIndex,
-                );
-                io.to(socketId).emit('playerMadeMove', modifiedGame);
-            });
+                    const modifiedGame = emplaceBoardFog(
+                        myGame as unknown as { board: Piece[][] },
+                        playerIndex,
+                    );
+                    io.to(socketId).emit('playerMadeMove', modifiedGame);
+                },
+            );
 
             const winnerIndex = await winner(room);
             const gameStats = await getGameStats(room);
             if (winnerIndex !== -1) {
                 console.info('game ended from victory', gameStats);
                 io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
-                await updateGame(room, { winnerId: uid });
+                await updateGame(room, { winnerId: uid || 'anonymous' });
             }
         }
     } else {
@@ -524,11 +528,7 @@ async function playerMakeMove(
 
 async function playerForfeit(
     this: any,
-    {
-        playerName,
-        uid,
-        room,
-    }: { playerName: string; uid: string; room: string },
+    { playerName, room }: { playerName: string; room: string },
 ) {
     const myGame = await getGame(room);
     if (!myGame) {
@@ -537,12 +537,20 @@ async function playerForfeit(
         return;
     }
     const playerIndex = myGame.players.indexOf(playerName);
-    if (myGame.hostId === uid) {
-        await updateGame(room, { winnerId: myGame.clientId });
-    } else if (myGame.clientId === uid) {
-        await updateGame(room, { winnerId: myGame.hostId });
-    }
     const winnerIndex = playerIndex === 0 ? 1 : 0;
+
+    if (winnerIndex == 0) {
+        // host wins
+        await updateGame(room, {
+            winnerId: myGame.hostId || 'anonymous',
+        });
+    } else {
+        // client wins
+        await updateGame(room, {
+            winnerId: myGame.clientId || 'anonymous',
+        });
+    }
+
     const gameStats = await getGameStats(room);
     console.info('game ended due to forfeit');
     io.sockets.in(room).emit('endGame', { winnerIndex, gameStats });
