@@ -1,15 +1,15 @@
 // router for the game
-// Path: src\routes\game\index.ts
+// Path: src\routes\games\index.ts
 
 import { Router } from 'express';
 // import functions from the controller
 import { getGameById } from '../../controllers/gameController';
 
-const game = Router();
+const games = Router();
 
-// start urls with "game/"
+// start urls with "games/"
 
-game.get('/:gameId', async (req, res) => {
+games.get('/:gameId', async (req, res) => {
     const myGame = await getGameById(req.params.gameId);
     if (myGame) {
         res.status(200).send(myGame);
@@ -18,4 +18,4 @@ game.get('/:gameId', async (req, res) => {
     }
 });
 
-export default game;
+export default games;
