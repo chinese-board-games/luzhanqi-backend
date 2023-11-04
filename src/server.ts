@@ -50,6 +50,7 @@ server.on('listening', onListening);
  * Event listener for HTTP server "error" event.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onError(error: any) {
     if (error.syscall !== 'listen') {
         throw error;
