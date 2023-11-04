@@ -32,6 +32,8 @@ export const getUser = async (uid: string) => {
 export const addGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
+        console.info(`Adding game ${gameId} to ${uid}`)
+
         myUser.games.push(gameId);
         await myUser.save();
         return myUser;
@@ -42,6 +44,7 @@ export const addGame = async (uid: string, gameId: string) => {
 export const removeGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
+        console.info(`Removing game ${typeof gameId} ${gameId} from ${uid}`)
         myUser.games = myUser.games.filter((game) => game !== gameId);
         await myUser.save();
         return myUser;
