@@ -1,5 +1,6 @@
 import User from '../models/User';
 import { isEmpty } from 'lodash';
+import { getGameById } from './gameController';
 
 // create a user in the mongodb database
 
@@ -29,16 +30,26 @@ export const getUser = async (uid: string) => {
     console.error('User not found');
 };
 
+// adds a Game gid to a User's games list (idempotent)
 export const addGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
         console.info(`Adding game ${gameId} to ${uid}`)
-
-        myUser.games.push(gameId);
-        await myUser.save();
-        return myUser;
+        const myGame = await getGameById(gameId);
+        if (myGame) {
+            if (myUser.games.includes(gameId)) {
+                console.info(`Attempted to add Game ${gameId} to User ${uid} when Game already in games list.`)
+                return myUser;
+            }
+            myUser.games.push(gameId);
+            await myUser.save();
+            return myUser;
+        } else {
+            console.error('Game not found');
+        }
+    } else { 
+        console.error('User not found');
     }
-    console.error('User not found');
 };
 
 export const removeGame = async (uid: string, gameId: string) => {

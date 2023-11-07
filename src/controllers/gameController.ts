@@ -2,29 +2,28 @@ import Game from '../models/Game';
 
 /**
  * creates a Game in the database and returns
- * @param {Object} { host, hostId, playerToSocketIdMap } the room ID, optional hostId if logged in, socketMap
+ * @param {Object} { host, playerToUidMap, playerToSocketIdMap } the room ID, uidMap, socketMap
  * @returns {Object} the Game object as defined in Game.js
  * @see createGame
  */
 
 export const createGame = async ({
     host,
-    hostId,
+    playerToUidMap,
     playerToSocketIdMap,
 }: {
     host: string;
-    hostId: string;
+    playerToUidMap: Map<string, string | null>;
     playerToSocketIdMap: Map<string, string>;
 }) => {
     const game = new Game();
-    game.host = host;
-    game.hostId = hostId;
     game.players = [host];
+    game.playerToUidMap = playerToUidMap;
+    game.playerToSocketIdMap = playerToSocketIdMap;
     game.moves = [];
     game.turn = 0;
     game.board = null;
     game.winnerId = null;
-    game.playerToSocketIdMap = playerToSocketIdMap;
 
     const savedGame = await game.save();
     if (savedGame) {
@@ -48,6 +47,17 @@ export const getGameById = async (gid: string) => {
     console.error('Game not found');
 };
 
+export const updateGameUidMap = async (gid: string, playerName: string, uid: string) => {
+    const myGame = await getGameById(gid);
+    if (myGame) {
+        const { playerToUidMap } = myGame; 
+        playerToUidMap.set(playerName, uid);
+        await updateGame(gid, { playerToUidMap });
+        return myGame;
+    }
+    console.error('Game not found');
+};
+
 export const deleteGame = async (gid: string) => {
     const myGame = await Game.findByIdAndDelete(gid);
     if (myGame) {
@@ -56,16 +66,15 @@ export const deleteGame = async (gid: string) => {
     console.error('Game not found');
 };
 
-
 /**
  * adds a player to a Game in the database and returns the updated game or null
  * @param {Object} { gid, playerName, clientId, mySocketId } the game ID, joining player name, optional clientId if logged in, socketMap
  * @returns {Object} the updated Game object as defined in Game.js on success
  * @returns {null} on failure
- * @see addPlayer
+ * @see addClient
  */
 
-export const addPlayer = async ({
+export const addClient = async ({
     gid,
     playerName,
     clientId,
@@ -83,12 +92,14 @@ export const addPlayer = async ({
     const myGame = await getGameById(gid);
     if (myGame) {
         // assume only one result, take first one
-        const { players, playerToSocketIdMap } = myGame;
+        const { players, playerToUidMap, playerToSocketIdMap } = myGame;
         players.push(playerName);
+        playerToUidMap.set(playerName, clientId);
         playerToSocketIdMap.set(playerName, mySocketId);
-        await Game.findByIdAndUpdate(
+
+        await updateGame(
             gid,
-            { $set: { clientId }, players, playerToSocketIdMap },
+            { players, playerToUidMap, playerToSocketIdMap },
         );
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
@@ -103,7 +114,7 @@ export const addPlayer = async ({
  * @param {Object} { gid, playerName, clientId } the game ID, joining player name, optional clientId if logged in
  * @returns {Object} the updated Game object as defined in Game.js on success
  * @returns {null} on failure
- * @see addPlayer
+ * @see addClient
  */
 
 export const removePlayer = async ({
@@ -122,13 +133,14 @@ export const removePlayer = async ({
     const myGame = await getGameById(gid);
     if (myGame) {
         // assume only one result, take first one
-        const { playerToSocketIdMap } = myGame;
+        const { playerToUidMap, playerToSocketIdMap } = myGame;
         const players = [myGame.players[0]]; // only the host should remain
+        playerToUidMap.delete(playerName);
         playerToSocketIdMap.delete(playerName);
         
-        await Game.findByIdAndUpdate(
+        await updateGame(
             gid,
-            { $unset: { clientId }, players, playerToSocketIdMap },
+            { players, playerToUidMap, playerToSocketIdMap },
         );
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
@@ -187,18 +199,16 @@ export const isPlayerTurn = async ({
 };
 
 export const updateBoard = async (gid: string, board: any) => {
-    await Game.findByIdAndUpdate(gid, { $set: { board } });
+    await updateGame(gid, { $set: { board } })
 };
 
 export const updateGame = async (
     gid: string,
     updateFields: Record<string, unknown>,
-) => {
-    await Game.findByIdAndUpdate(gid, updateFields);
-};
+) => await Game.findByIdAndUpdate(gid, updateFields);
 
-export const winner = async (gid: any) => {
-    const myGame = await Game.findById(gid);
+export const winner = async (gid: string) => {
+    const myGame = await getGameById(gid);
     if (!myGame) {
         return -1;
     }

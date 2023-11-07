@@ -2,11 +2,9 @@ import { Schema, model } from 'mongoose';
 
 interface IGame extends Document {
     room: string;
-    host: string;
-    hostId: string | null;
-    clientId: string | null;
     players: Array<string>;
     playerToSocketIdMap: Map<string, string>;
+    playerToUidMap: Map<string, string | null>;
     moves: Array<{
         source: Array<number>;
         target: Array<number>;
@@ -26,11 +24,9 @@ interface IGame extends Document {
 const GameSchema = new Schema<IGame>(
     {
         room: String,
-        host: String,
         players: [],
+        playerToUidMap: Map,
         playerToSocketIdMap: Map,
-        hostId: String,
-        clientId: String,
         moves: [],
         turn: Number,
         board: [],
