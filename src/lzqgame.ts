@@ -2,7 +2,7 @@ import { isEqual, cloneDeep } from 'lodash';
 import type { Server, Socket } from 'socket.io';
 import {
     createGame,
-    addPlayer,
+    addClient,
     removePlayer,
     getPlayers,
     isPlayerTurn,
@@ -58,11 +58,11 @@ export const initGame = (sio: Server, socket: Socket) => {
  */
 async function hostCreateNewGame(
     this: Socket,
-    { playerName, hostId }: { playerName: string; hostId: string },
+    { playerName, hostId }: { playerName: string; hostId: string | null },
 ) {
     const myGame = await createGame({
         host: playerName,
-        hostId,
+        playerToUidMap: new Map([[playerName, hostId]]),
         playerToSocketIdMap: new Map([[playerName, this.id]]),
     });
     if (myGame) {
@@ -130,7 +130,7 @@ async function playerJoinRoom(
             'There is already a player in this game by that name. Please choose another.',
         ]);
     } else {
-                console.info(`Room: ${data.joinRoomId}`);
+        console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
         data.mySocketId = this.id;
 
@@ -141,7 +141,7 @@ async function playerJoinRoom(
             `Player ${data.playerName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
         );
 
-        const myUpdatedGame = await addPlayer({
+        const myUpdatedGame = await addClient({
             gid: data.joinRoomId,
             playerName: data.playerName,
             clientId: data.clientId,
@@ -200,8 +200,10 @@ async function playerLeaveRoom(this: Socket, data: {
         // remove the game
         const myDeletedGame = await deleteGame(data.leaveRoomId);
         if (myDeletedGame) {
-            myDeletedGame.clientId && (await removeGame(myDeletedGame.clientId, myDeletedGame._id.toString()));
-            myDeletedGame.hostId && (await removeGame(myDeletedGame.hostId, myDeletedGame._id.toString()));
+            myDeletedGame.players.forEach(async (player) => {
+                const eachUid = myDeletedGame.playerToUidMap.get(player)
+                eachUid && (await removeGame(eachUid, myDeletedGame._id.toString()));
+            })
             io.sockets.in(data.leaveRoomId).emit('youHaveLeftTheRoom', { ...data, players: [] });
             io.socketsLeave(data.leaveRoomId);
         } else {
@@ -238,7 +240,7 @@ async function playerLeaveRoom(this: Socket, data: {
                 return;
             }
             data.players = players;
-            this.emit('youHaveLeftTheRoom', data);
+            this.emit('youHaveLeftTheRoom');
             io.sockets.in(data.leaveRoomId).emit('playerLeftRoom', data);
         } else {
             console.error('Player could not be removed from given room');
@@ -617,17 +619,7 @@ async function playerForfeit(
     const playerIndex = myGame.players.indexOf(playerName);
     const winnerIndex = playerIndex === 0 ? 1 : 0;
 
-    if (winnerIndex == 0) {
-        // host wins
-        await updateGame(gid, {
-            winnerId: myGame.hostId || 'anonymous',
-        });
-    } else {
-        // client wins
-        await updateGame(gid, {
-            winnerId: myGame.clientId || 'anonymous',
-        });
-    }
+    await updateGame(gid, { winnerId: myGame.playerToUidMap.get(playerName) || 'anonymous' });
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
