@@ -619,7 +619,7 @@ async function playerForfeit(
     const playerIndex = myGame.players.indexOf(playerName);
     const winnerIndex = playerIndex === 0 ? 1 : 0;
 
-    await updateGame(gid, { winnerId: myGame.playerToUidMap.get(playerName) || 'anonymous' });
+    await updateGame(gid, { winnerId: myGame.playerToUidMap.get(myGame.players[winnerIndex]) || 'anonymous' });
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
