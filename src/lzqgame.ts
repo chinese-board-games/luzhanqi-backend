@@ -385,13 +385,15 @@ async function playerInitialBoard(
                 const playerIndex = myGame.players.indexOf(instPlayerName);
                 console.info(`playerIndex: ${playerIndex}`);
 
-                const modifiedGame = myGame.config.fogOfWar
-                    ? emplaceBoardFog(
-                          myGame as unknown as { board: Piece[][] },
-                          playerIndex,
-                      )
-                    : myGame;
-                io.to(socketId).emit('boardSet', modifiedGame);
+                io.to(socketId).emit(
+                    'boardSet',
+                    myGame.config.fogOfWar
+                        ? emplaceBoardFog(
+                              myGame as unknown as { board: Piece[][] },
+                              playerIndex,
+                          )
+                        : myGame,
+                );
             },
         );
     }
@@ -620,13 +622,15 @@ async function playerMakeMove(
                     const playerIndex = myGame.players.indexOf(instPlayerName);
                     console.info(`playerIndex: ${playerIndex}`);
 
-                    const modifiedGame = myGame.config.fogOfWar
-                        ? emplaceBoardFog(
-                              myGame as unknown as { board: Piece[][] },
-                              playerIndex,
-                          )
-                        : myGame;
-                    io.to(socketId).emit('playerMadeMove', modifiedGame);
+                    io.to(socketId).emit(
+                        'playerMadeMove',
+                        myGame.config.fogOfWar
+                            ? emplaceBoardFog(
+                                  myGame as unknown as { board: Piece[][] },
+                                  playerIndex,
+                              )
+                            : myGame,
+                    );
                 },
             );
 

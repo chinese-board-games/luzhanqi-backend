@@ -33,6 +33,7 @@ type GameDocumentOverrides = {
     config: Types.Subdocument<Types.ObjectId> & IGameConfig;
 };
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 type GameModelType = Model<IGame, {}, GameDocumentOverrides>;
 
 const GameSchema = new Schema<IGame, GameModelType>(
@@ -45,6 +46,9 @@ const GameSchema = new Schema<IGame, GameModelType>(
         turn: Number,
         board: [],
         winnerId: String,
+        config: new Schema<IGameConfig>({
+            fogOfWar: Boolean,
+        }),
     },
     { timestamps: true },
 );
