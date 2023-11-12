@@ -1,6 +1,6 @@
 import { isEqual, cloneDeep } from 'lodash';
 import type { Server, Socket } from 'socket.io';
-import { GameConfigData } from './models/Game';
+import Game, { GameConfigData } from './models/Game';
 import {
     createGame,
     addClient,
@@ -100,14 +100,26 @@ async function hostCreateNewGame(
  * Two players have joined. Alert the host!
  * @param roomId The room ID
  */
-function hostPrepareGame(this: Socket, gid: string) {
+async function hostPrepareGame(
+    this: Socket,
+    roomId: string,
+    gameId: string,
+    gameConfig: GameConfigData | null,
+) {
     const data = {
         mySocketId: this.id,
-        roomId: gid,
+        roomId,
         turn: 0,
     };
-    console.info(`All players present. Preparing game for room ${gid}`);
-    io.sockets.in(gid).emit('beginNewGame', data);
+    if (gameConfig) {
+        const res = await Game.findByIdAndUpdate(
+            gameId,
+            { $set: { config: gameConfig } },
+            { new: true },
+        );
+    }
+    console.info(`All players present. Preparing game for room ${roomId}`);
+    io.sockets.in(roomId).emit('beginNewGame', data);
 }
 
 /**
