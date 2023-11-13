@@ -102,24 +102,23 @@ async function hostCreateNewGame(
  */
 async function hostPrepareGame(
     this: Socket,
-    roomId: string,
-    gameId: string,
+    gid: string,
     gameConfig: GameConfigData | null,
 ) {
     const data = {
         mySocketId: this.id,
-        roomId,
+        roomId: gid,
         turn: 0,
     };
     if (gameConfig) {
         const res = await Game.findByIdAndUpdate(
-            gameId,
+            gid,
             { $set: { config: gameConfig } },
             { new: true },
         );
     }
-    console.info(`All players present. Preparing game for room ${roomId}`);
-    io.sockets.in(roomId).emit('beginNewGame', data);
+    console.info(`All players present. Preparing game for room ${gid}`);
+    io.sockets.in(gid).emit('beginNewGame', data);
 }
 
 /**
