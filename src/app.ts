@@ -2,7 +2,7 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
+import mongoose, { ConnectOptions } from 'mongoose';
 import express from 'express';
 import user from './routes/user';
 import game from './routes/games';
@@ -20,7 +20,7 @@ mongoose.connect(mongoURI, {
     useFindAndModify: false,
     useNewUrlParser: true,
     useUnifiedTopology: true,
-});
+} as ConnectOptions);
 // set mongoose promises to es6 default
 mongoose.Promise = global.Promise;
 
