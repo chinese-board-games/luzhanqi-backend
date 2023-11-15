@@ -218,6 +218,14 @@ async function playerLeaveRoom(
     }
     console.info(`Room: ${data.leaveRoomId}`);
 
+    const myGame = await getGameById(data.leaveRoomId);
+
+    if (myGame?.board) {
+        // board has already been set, do not delete the Game
+        this.emit('youHaveLeftTheRoom', { ...data, players: [] });
+        return;
+    }
+
     if (existingPlayers.indexOf(data.playerName) == 0) {
         // host is leaving, delete the game and kick everyone
         console.info(`Room ${data.leaveRoomId} has been deleted.`);
