@@ -3,7 +3,8 @@
     "description": "engine for luzhanqi online game",
     "version": "0.0.0",
     "engines": {
-        "node": "21.x"
+        "node": "20.9.0",
+        "npm": "10.2.4"
     },
     "private": true,
     "nodemonConfig": {
@@ -21,7 +22,7 @@
     "scripts": {
         "start": "node ./dist/server.js",
         "build": "tsc --p ./tsconfig.json -p .",
-        "dev": "ts-node-dev --respawn --pretty --transpile-only ./src/server.ts",
+        "dev": "ts-node-dev --trace-deprecation --respawn --pretty --transpile-only ./src/server.ts",
         "prod": "NODE_ENV=production npm run start",
         "test": "NODE_ENV=test jest",
         "prepare": "husky install"
@@ -32,14 +33,12 @@
         "debug": "~2.6.9",
         "dotenv": "^8.2.0",
         "express": "^4.16.4",
-        "express-graphql": "^0.12.0",
-        "graphql": "^15.4.0",
         "lodash": "^4.17.21",
         "lodash.isequal": "^4.5.0",
         "mongodb": "^3.6.3",
         "mongoose": "^8.0.0",
         "morgan": "~1.9.1",
-        "nodemon": "^2.0.6",
+        "nodemon": "^3.0.1",
         "npm-run-all": "^4.1.5",
         "rimraf": "^3.0.2",
         "socket.io": "^4.5.4",

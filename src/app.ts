@@ -2,7 +2,7 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import dotenv from 'dotenv';
-import mongoose, { ConnectOptions } from 'mongoose';
+import mongoose from 'mongoose';
 import express from 'express';
 import user from './routes/user';
 import game from './routes/games';
@@ -16,7 +16,7 @@ const LOCAL_MONGO_URI = `mongodb://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_POR
 
 // DB Setup
 const mongoURI = process.env.MONGODB_URI || LOCAL_MONGO_URI;
-mongoose.connect(mongoURI, { useNewUrlParser: true } as ConnectOptions);
+mongoose.connect(mongoURI);
 // set mongoose promises to es6 default
 mongoose.Promise = global.Promise;
 
