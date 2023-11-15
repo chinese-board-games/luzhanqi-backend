@@ -30,11 +30,16 @@ const options = {
         ],
         methods: ['GET', 'POST'],
     },
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        skipMiddlewares: true,
+    },
 };
 
 const io = new Server(server, options);
 io.on('connection', (socket: Socket) => {
     console.info('client connected');
+    console.info(socket.recovered);
     initGame(io, socket);
 });
 
