@@ -1,6 +1,10 @@
 {
     "name": "luzhanqi-backend",
+    "description": "engine for luzhanqi online game",
     "version": "0.0.0",
+    "engines": {
+        "node": "21.x"
+    },
     "private": true,
     "nodemonConfig": {
         "exec": "NODE_ENV=development npm run start",
