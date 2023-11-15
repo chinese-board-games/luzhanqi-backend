@@ -16,11 +16,7 @@ const LOCAL_MONGO_URI = `mongodb://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_POR
 
 // DB Setup
 const mongoURI = process.env.MONGODB_URI || LOCAL_MONGO_URI;
-mongoose.connect(mongoURI, {
-    useFindAndModify: false,
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-} as ConnectOptions);
+mongoose.connect(mongoURI, {});
 // set mongoose promises to es6 default
 mongoose.Promise = global.Promise;
 
