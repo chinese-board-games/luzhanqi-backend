@@ -1,4 +1,4 @@
-import Game from '../models/Game';
+import Game, { GameConfigData } from '../models/Game';
 
 /**
  * creates a Game in the database and returns
@@ -11,19 +11,23 @@ export const createGame = async ({
     host,
     playerToUidMap,
     playerToSocketIdMap,
+    gameConfig = { fogOfWar: true },
 }: {
     host: string;
     playerToUidMap: Map<string, string | null>;
     playerToSocketIdMap: Map<string, string>;
+    gameConfig: GameConfigData;
 }) => {
-    const game = new Game();
-    game.players = [host];
-    game.playerToUidMap = playerToUidMap;
-    game.playerToSocketIdMap = playerToSocketIdMap;
-    game.moves = [];
-    game.turn = 0;
-    game.board = null;
-    game.winnerId = null;
+    const game = new Game({
+        players: [host],
+        playerToUidMap,
+        playerToSocketIdMap,
+        moves: [],
+        turn: 0,
+        board: null,
+        winnerId: null,
+        config: gameConfig,
+    });
 
     const savedGame = await game.save();
     if (savedGame) {
@@ -47,10 +51,14 @@ export const getGameById = async (gid: string) => {
     console.error('Game not found');
 };
 
-export const updateGameUidMap = async (gid: string, playerName: string, uid: string) => {
+export const updateGameUidMap = async (
+    gid: string,
+    playerName: string,
+    uid: string,
+) => {
     const myGame = await getGameById(gid);
     if (myGame) {
-        const { playerToUidMap } = myGame; 
+        const { playerToUidMap } = myGame;
         playerToUidMap.set(playerName, uid);
         await updateGame(gid, { playerToUidMap });
         return myGame;
@@ -97,10 +105,7 @@ export const addClient = async ({
         playerToUidMap.set(playerName, clientId);
         playerToSocketIdMap.set(playerName, mySocketId);
 
-        await updateGame(
-            gid,
-            { players, playerToUidMap, playerToSocketIdMap },
-        );
+        await updateGame(gid, { players, playerToUidMap, playerToSocketIdMap });
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
@@ -137,11 +142,8 @@ export const removePlayer = async ({
         const players = [myGame.players[0]]; // only the host should remain
         playerToUidMap.delete(playerName);
         playerToSocketIdMap.delete(playerName);
-        
-        await updateGame(
-            gid,
-            { players, playerToUidMap, playerToSocketIdMap },
-        );
+
+        await updateGame(gid, { players, playerToUidMap, playerToSocketIdMap });
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
@@ -199,7 +201,7 @@ export const isPlayerTurn = async ({
 };
 
 export const updateBoard = async (gid: string, board: any) => {
-    await updateGame(gid, { $set: { board } })
+    await updateGame(gid, { $set: { board } });
 };
 
 export const updateGame = async (

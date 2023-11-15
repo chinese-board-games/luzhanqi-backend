@@ -1,4 +1,11 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Types, Model } from 'mongoose';
+
+interface IGameConfig extends Document {
+    _id: Types.ObjectId;
+    fogOfWar: boolean;
+}
+
+export type GameConfigData = Pick<IGameConfig, 'fogOfWar'>;
 
 interface IGame extends Document {
     room: string;
@@ -19,9 +26,17 @@ interface IGame extends Document {
         }>
     > | null;
     winnerId: string | null;
+    config: IGameConfig;
 }
 
-const GameSchema = new Schema<IGame>(
+type GameDocumentOverrides = {
+    config: Types.Subdocument<Types.ObjectId> & IGameConfig;
+};
+
+// eslint-disable-next-line @typescript-eslint/ban-types
+type GameModelType = Model<IGame, {}, GameDocumentOverrides>;
+
+const GameSchema = new Schema<IGame, GameModelType>(
     {
         room: String,
         players: [],
@@ -31,10 +46,13 @@ const GameSchema = new Schema<IGame>(
         turn: Number,
         board: [],
         winnerId: String,
+        config: new Schema<IGameConfig>({
+            fogOfWar: Boolean,
+        }),
     },
     { timestamps: true },
 );
 
-const Game = model<IGame>('Game', GameSchema);
+const Game = model<IGame, GameModelType>('Game', GameSchema);
 
 export default Game;

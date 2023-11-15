@@ -1,5 +1,6 @@
 import { isEqual, cloneDeep } from 'lodash';
 import type { Server, Socket } from 'socket.io';
+import Game, { GameConfigData } from './models/Game';
 import {
     createGame,
     addClient,
@@ -37,7 +38,7 @@ export const initGame = (sio: Server, socket: Socket) => {
 
     // Player Events
     gameSocket.on('playerJoinRoom', playerJoinRoom);
-    gameSocket.on('playerLeaveRoom', playerLeaveRoom)
+    gameSocket.on('playerLeaveRoom', playerLeaveRoom);
     gameSocket.on('playerRestart', playerRestart);
     gameSocket.on('playerMakeMove', playerMakeMove);
     gameSocket.on('playerForfeit', playerForfeit);
@@ -58,12 +59,21 @@ export const initGame = (sio: Server, socket: Socket) => {
  */
 async function hostCreateNewGame(
     this: Socket,
-    { playerName, hostId }: { playerName: string; hostId: string | null },
+    {
+        playerName,
+        hostId,
+        gameConfig,
+    }: {
+        playerName: string;
+        hostId: string | null;
+        gameConfig: GameConfigData;
+    },
 ) {
     const myGame = await createGame({
         host: playerName,
         playerToUidMap: new Map([[playerName, hostId]]),
         playerToSocketIdMap: new Map([[playerName, this.id]]),
+        gameConfig,
     });
     if (myGame) {
         // MongoDB ObjectIds are BSON by default, ensure roomIds are always strings
@@ -90,12 +100,23 @@ async function hostCreateNewGame(
  * Two players have joined. Alert the host!
  * @param roomId The room ID
  */
-function hostPrepareGame(this: Socket, gid: string) {
+async function hostPrepareGame(
+    this: Socket,
+    gid: string,
+    gameConfig: GameConfigData | null,
+) {
     const data = {
         mySocketId: this.id,
         roomId: gid,
         turn: 0,
     };
+    if (gameConfig) {
+        const res = await Game.findByIdAndUpdate(
+            gid,
+            { $set: { config: gameConfig } },
+            { new: true },
+        );
+    }
     console.info(`All players present. Preparing game for room ${gid}`);
     io.sockets.in(gid).emit('beginNewGame', data);
 }
@@ -149,7 +170,8 @@ async function playerJoinRoom(
         });
         if (myUpdatedGame) {
             // add the Game _id to the player's User document if they are logged in
-            data.clientId && (await addGame(data.clientId, myUpdatedGame._id.toString()));
+            data.clientId &&
+                (await addGame(data.clientId, myUpdatedGame._id.toString()));
 
             const players = await getPlayers(data.joinRoomId);
             if (!players) {
@@ -160,7 +182,7 @@ async function playerJoinRoom(
                 return;
             }
             data.players = players;
-                        this.emit('youHaveJoinedTheRoom', data);
+            this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
@@ -175,22 +197,24 @@ async function playerJoinRoom(
  * The player wants to leave the game. Remove only the player.
  * @param roomId The room ID
  */
-async function playerLeaveRoom(this: Socket, data: { 
-    playerName: string;
-    uid: string | null;
-    leaveRoomId: string;
-    players: string[];
- }) {
-    
-    console.info(`Player with name: ${data.playerName} leaving room ${data.leaveRoomId}`);
+async function playerLeaveRoom(
+    this: Socket,
+    data: {
+        playerName: string;
+        uid: string | null;
+        leaveRoomId: string;
+        players: string[];
+    },
+) {
+    console.info(
+        `Player with name: ${data.playerName} leaving room ${data.leaveRoomId}`,
+    );
     // clean up by removing the player from DB
     const existingPlayers = await getPlayers(data.leaveRoomId);
-    
+
     if (!existingPlayers) {
-        this.emit('error', [
-            'Attempting to leave room that does not exist.',
-        ]);
-        return
+        this.emit('error', ['Attempting to leave room that does not exist.']);
+        return;
     }
     console.info(`Room: ${data.leaveRoomId}`);
 
@@ -201,27 +225,30 @@ async function playerLeaveRoom(this: Socket, data: {
         const myDeletedGame = await deleteGame(data.leaveRoomId);
         if (myDeletedGame) {
             myDeletedGame.players.forEach(async (player) => {
-                const eachUid = myDeletedGame.playerToUidMap.get(player)
-                eachUid && (await removeGame(eachUid, myDeletedGame._id.toString()));
-            })
-            io.sockets.in(data.leaveRoomId).emit('youHaveLeftTheRoom', { ...data, players: [] });
+                const eachUid = myDeletedGame.playerToUidMap.get(player);
+                eachUid &&
+                    (await removeGame(eachUid, myDeletedGame._id.toString()));
+            });
+            io.sockets
+                .in(data.leaveRoomId)
+                .emit('youHaveLeftTheRoom', { ...data, players: [] });
             io.socketsLeave(data.leaveRoomId);
         } else {
-            console.error(`Game corresponding to room ${data.leaveRoomId} could not be deleted.`);
+            console.error(
+                `Game corresponding to room ${data.leaveRoomId} could not be deleted.`,
+            );
             this.emit('error', [
                 `${data.playerName} (host) could not be removed from room: ${data.leaveRoomId}`,
             ]);
         }
-        
     } else {
-    
         // Leave the room
         this.leave(data.leaveRoomId);
-    
+
         console.info(
             `Player ${data.playerName} leaving room: ${data.leaveRoomId} at socket: ${this.id}`,
         );
-        
+
         const myUpdatedGame = await removePlayer({
             gid: data.leaveRoomId,
             playerName: data.playerName,
@@ -229,8 +256,9 @@ async function playerLeaveRoom(this: Socket, data: {
         });
         if (myUpdatedGame) {
             // remove the Game id from the player's User document if they are logged in
-            data.uid && (await removeGame(data.uid, myUpdatedGame._id.toString()));
-    
+            data.uid &&
+                (await removeGame(data.uid, myUpdatedGame._id.toString()));
+
             const players = await getPlayers(data.leaveRoomId);
             if (!players || players.length !== 1) {
                 console.error('Player could not be removed from given room');
@@ -254,18 +282,34 @@ async function playerLeaveRoom(this: Socket, data: {
 const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
     // copy the board because we are diverging them
     const myBoard = cloneDeep(game.board);
+    const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
+        row.some((space: Piece | null) => {
+            return (
+                space !== null &&
+                space.affiliation !== playerIndex &&
+                space.name === 'fieldMarshall'
+            );
+        }),
+    );
 
     myBoard.forEach((row: Piece[], y: number) => {
         // for each space
         row.forEach((space: Piece | null, x: number) => {
+            // only replace pieces that are there
             if (space !== null && space.affiliation !== playerIndex) {
-                // only replace pieces that are there
-                myBoard[y][x] = {
-                    0: y,
-                    1: x,
-                    length: 2,
-                    ...createPiece('enemy', 1 - playerIndex), // indicate the affiliation as opposite of oneself
-                };
+                // reveal flag if field marshall is captured
+                const isRevealedFlag =
+                    space.name === 'flag' && !enemyHasFieldMarshall;
+
+                // hide piece if is enemy piece and not revealed flag
+                if (!isRevealedFlag) {
+                    myBoard[y][x] = {
+                        0: y,
+                        1: x,
+                        length: 2,
+                        ...createPiece('enemy', 1 - playerIndex), // indicate the affiliation as opposite of oneself
+                    };
+                }
             }
         });
     });
@@ -352,11 +396,15 @@ async function playerInitialBoard(
                 const playerIndex = myGame.players.indexOf(instPlayerName);
                 console.info(`playerIndex: ${playerIndex}`);
 
-                const modifiedGame = emplaceBoardFog(
-                    myGame as unknown as { board: Piece[][] },
-                    playerIndex,
+                io.to(socketId).emit(
+                    'boardSet',
+                    myGame.config.fogOfWar
+                        ? emplaceBoardFog(
+                              myGame as unknown as { board: Piece[][] },
+                              playerIndex,
+                          )
+                        : myGame,
                 );
-                io.to(socketId).emit('boardSet', modifiedGame);
             },
         );
     }
@@ -585,11 +633,15 @@ async function playerMakeMove(
                     const playerIndex = myGame.players.indexOf(instPlayerName);
                     console.info(`playerIndex: ${playerIndex}`);
 
-                    const modifiedGame = emplaceBoardFog(
-                        myGame as unknown as { board: Piece[][] },
-                        playerIndex,
+                    io.to(socketId).emit(
+                        'playerMadeMove',
+                        myGame.config.fogOfWar
+                            ? emplaceBoardFog(
+                                  myGame as unknown as { board: Piece[][] },
+                                  playerIndex,
+                              )
+                            : myGame,
                     );
-                    io.to(socketId).emit('playerMadeMove', modifiedGame);
                 },
             );
 
@@ -619,7 +671,11 @@ async function playerForfeit(
     const playerIndex = myGame.players.indexOf(playerName);
     const winnerIndex = playerIndex === 0 ? 1 : 0;
 
-    await updateGame(gid, { winnerId: myGame.playerToUidMap.get(myGame.players[winnerIndex]) || 'anonymous' });
+    await updateGame(gid, {
+        winnerId:
+            myGame.playerToUidMap.get(myGame.players[winnerIndex]) ||
+            'anonymous',
+    });
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
@@ -630,7 +686,10 @@ async function playerForfeit(
  * The game is over, and a player has clicked a button to restart the game.
  * @param data
  */
-function playerRestart(this: Socket, data: { gameId: string; playerId: string }) {
+function playerRestart(
+    this: Socket,
+    data: { gameId: string; playerId: string },
+) {
     // Emit the player's data back to the clients in the game room.
     data.playerId = this.id;
     io.sockets.in(data.gameId).emit('playerJoinedRoom', data);
