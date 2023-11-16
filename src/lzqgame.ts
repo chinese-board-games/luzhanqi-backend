@@ -293,9 +293,9 @@ const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
     const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
         row.some((space: Piece | null) => {
             return (
-                space !== null &&
+                space != null &&
                 space.affiliation !== playerIndex &&
-                space.name === 'fieldMarshall'
+                space.name === 'field_marshall'
             );
         }),
     );
