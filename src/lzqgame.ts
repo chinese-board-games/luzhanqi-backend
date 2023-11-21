@@ -151,7 +151,7 @@ async function playerJoinRoom(
             'There is already a player in this game by that name. Please choose another.',
         ]);
     } else {
-        console.info(`Room: ${data.joinRoomId}`);
+                console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
         data.mySocketId = this.id;
 
@@ -182,7 +182,7 @@ async function playerJoinRoom(
                 return;
             }
             data.players = players;
-            this.emit('youHaveJoinedTheRoom', data);
+                        this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
@@ -580,7 +580,6 @@ async function playerMakeMove(
         };
     },
 ) {
-    // TODO: add move validation function
     if (
         await isPlayerTurn({
             playerName,

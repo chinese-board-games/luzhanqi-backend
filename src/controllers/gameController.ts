@@ -65,7 +65,6 @@ export const updateGameUidMap = async (
     }
     console.error('Game not found');
 };
-
 export const deleteGame = async (gid: string) => {
     const myGame = await Game.findByIdAndDelete(gid);
     if (myGame) {
