@@ -21,20 +21,32 @@ const user = Router();
 user.post('/:userId', async (req, res) => {
     console.info('createUser');
     const myUser = await createUser(req.params.userId);
-    res.status(200).send(myUser);
+    if (myUser) {
+        res.status(200).send(myUser);
+        console.info('sending created user');
+    } else {
+        res.status(404).send('User could not be created');
+    }
 });
 user.get('/:userId', async (req, res) => {
     console.info('getUser');
     const myUser = await getUser(req.params.userId);
     if (myUser) {
         res.status(200).send(myUser);
-        console.info('sending user');
+        console.info('sending got user');
     } else {
-        res.status(200).send('User not found');
+        res.status(404).send('User not found');
     }
 });
-user.post('/:userId/games/:gameId', (req, res) => {
+user.post('/:userId/games/:gameId', async (req, res) => {
     addGame(req.params.userId, req.params.gameId);
+    const myUser = await getUser(req.params.userId);
+    if (myUser) {
+        res.status(200).send(myUser);
+        console.info('sending user');
+    } else {
+        res.status(404).send('User not found');
+    }
 });
 user.delete('/:userId/games/:gameId', (req, res) => {
     removeGame(req.params.userId, req.params.gameId);
