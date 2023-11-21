@@ -14,8 +14,21 @@ games.get('/:gameId', async (req, res) => {
     if (myGame) {
         res.status(200).send(myGame);
     } else {
-        res.status(200).send('Game not found');
+        res.status(404).send('Game not found');
     }
 });
+
+// updates a Game's playerToUidMap with a playerName -> Firebase uid
+games.post('/:gameId/:playerName/:uid', async (req, res) => { 
+    const { gameId, playerName, uid } = req.params;
+    const myGame = await getGameById(gameId);
+    if (myGame) {
+        myGame.playerToUidMap.set(playerName, uid);
+        myGame.save();
+        res.status(200).send(myGame);
+    } else {
+        res.status(404).send('Game not found');
+    }
+})
 
 export default games;

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-fallthrough */
 
 /**
  * Module dependencies.
@@ -30,11 +29,16 @@ const options = {
         ],
         methods: ['GET', 'POST'],
     },
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        skipMiddlewares: true,
+    },
 };
 
 const io = new Server(server, options);
 io.on('connection', (socket: Socket) => {
-    console.info('client connected');
+    console.info(`Client connected on ${socket.id}`);
+    console.info(`Socket recovered: ${socket.recovered}`);
     initGame(io, socket);
 });
 
@@ -66,9 +70,11 @@ function onError(error: any) {
         case 'EACCES':
             console.error(`${bind} requires elevated privileges`);
             process.exit(1);
+        // eslint-disable-next-line no-fallthrough
         case 'EADDRINUSE':
             console.error(`${bind} is already in use`);
             process.exit(1);
+        // eslint-disable-next-line no-fallthrough
         default:
             throw error;
     }
