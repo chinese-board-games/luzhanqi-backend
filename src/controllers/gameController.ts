@@ -22,6 +22,9 @@ export const createGame = async ({
         players: [host],
         playerToUidMap,
         playerToSocketIdMap,
+        spectators: [],
+        spectatorToUidMap: new Map(),
+        spectatorToSocketIdMap: new Map(),
         moves: [],
         turn: 0,
         board: null,
@@ -78,10 +81,10 @@ export const deleteGame = async (gid: string) => {
  * @param {Object} { gid, playerName, clientId, mySocketId } the game ID, joining player name, optional clientId if logged in, socketMap
  * @returns {Object} the updated Game object as defined in Game.js on success
  * @returns {null} on failure
- * @see addClient
+ * @see addPlayer
  */
 
-export const addClient = async ({
+export const addPlayer = async ({
     gid,
     playerName,
     clientId,
@@ -115,10 +118,10 @@ export const addClient = async ({
 /**
  * removes a player from a Game in the database and returns the updated game or null
  * assumes that there is one player other than host
- * @param {Object} { gid, playerName, clientId } the game ID, joining player name, optional clientId if logged in
+ * @param {Object} { gid, playerName, clientId } the game ID, leaving player name, optional clientId if logged in
  * @returns {Object} the updated Game object as defined in Game.js on success
  * @returns {null} on failure
- * @see addClient
+ * @see removePlayer
  */
 
 export const removePlayer = async ({
@@ -164,10 +167,119 @@ export const getPlayers = async (gid: string) => {
     console.error('Game not found');
 };
 
+/**
+ * adds a spectator to a Game in the database and returns the updated game or null
+ * @param {Object} { gid, spectatorName, clientId, mySocketId } the game ID, spectator name, optional clientId if logged in, socketMap
+ * @returns {Object} the updated Game object as defined in Game.js on success
+ * @returns {null} on failure
+ * @see addSpectator
+ */
+
+export const addSpectator = async ({
+    gid,
+    spectatorName,
+    clientId,
+    mySocketId,
+}: {
+    gid: string;
+    spectatorName: string;
+    clientId: string | null;
+    mySocketId: string;
+}) => {
+    console.info(
+        `Adding spectator ${spectatorName} to game ${gid} with client ID ${clientId}`,
+    );
+
+    const myGame = await getGameById(gid);
+    if (myGame) {
+        // assume only one result, take first one
+        const { spectators, spectatorToUidMap, spectatorToSocketIdMap } =
+            myGame;
+        spectators.push(spectatorName);
+        spectatorToUidMap.set(spectatorName, clientId);
+        spectatorToSocketIdMap.set(spectatorName, mySocketId);
+
+        await updateGame(gid, {
+            spectators,
+            spectatorToUidMap,
+            spectatorToSocketIdMap,
+        });
+        const myUpdatedGame = await getGameById(gid);
+        console.info(`Updated game: ${myUpdatedGame}`);
+        return myUpdatedGame;
+    }
+    console.error('Game not found');
+};
+
+/**
+ * takes game ID and returns array of spectators in the room
+ * @param {string} gid the game ID
+ * @returns {Array<Object>} an array of objects with {int: spectatorName}
+ * @see getPlayers
+ */
+export const getSpectators = async (gid: string) => {
+    const myGame = await getGameById(gid);
+    if (myGame) {
+        return myGame.spectators;
+    }
+    console.error('Game not found');
+};
+
+/**
+ * removes a spectator from a Game in the database and returns the updated game or null
+ * @param {Object} { gid, spectatorName, clientId } the game ID, leaving spectator name, optional clientId if logged in
+ * @returns {Object} the updated Game object as defined in Game.js on success
+ * @returns {null} on failure
+ * @see removeSpectator
+ */
+
+export const removeSpectator = async ({
+    gid,
+    spectatorName,
+    clientId,
+}: {
+    gid: string;
+    spectatorName: string;
+    clientId: string | null;
+}) => {
+    console.info(
+        `Removing player ${spectatorName} from game ${gid} with client ID ${clientId}`,
+    );
+
+    const myGame = await getGameById(gid);
+    if (myGame) {
+        // assume only one result, take first one
+        const { spectatorToUidMap, spectatorToSocketIdMap } = myGame;
+        const spectators = myGame.spectators.filter(
+            (eachSpectatorName) => eachSpectatorName !== spectatorName,
+        );
+        spectatorToUidMap.delete(spectatorName);
+        spectatorToSocketIdMap.delete(spectatorName);
+
+        await updateGame(gid, {
+            spectators,
+            spectatorToUidMap,
+            spectatorToSocketIdMap,
+        });
+        const myUpdatedGame = await getGameById(gid);
+        console.info(`Updated game: ${myUpdatedGame}`);
+        return myUpdatedGame;
+    }
+    console.error('Game not found');
+};
+
 export const getMoveHistory = async (gid: string) => {
     const myGame = await getGameById(gid);
     if (myGame) {
         return myGame.moves;
+    }
+    console.error('Game not found');
+};
+
+export const getDeadPieces = async (gid: string) => {
+    const myGame = await getGameById(gid);
+    if (myGame) {
+        return myGame.deadPieces;
     }
     console.error('Game not found');
 };
