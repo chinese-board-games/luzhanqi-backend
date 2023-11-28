@@ -672,27 +672,29 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
             (sourcePiece.name !== 'engineer' &&
                 targetPiece.name === 'landmine'))
     ) {
-        // remove both pieces
+        // kill both pieces
         deadPieces.push(
             board[target[0]][target[1]] as Piece,
             board[source[0]][source[1]] as Piece,
         );
         board[target[0]][target[1]] = null;
         board[source[0]][source[1]] = null;
-    } else if (
-        targetPiece === null ||
-        sourcePiece.order > targetPiece.order ||
+    } else if (sourcePiece.order > targetPiece.order ||
         (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
     ) {
+        // kill target piece
+        deadPieces.push(targetPiece);
+        
         // place source piece on target tile, remove source piece from source tile
-        if (sourcePiece) {
-            deadPieces.push(sourcePiece);
-        }
+        board[target[0]][target[1]] = sourcePiece;
+        board[source[0]][source[1]] = null;
+    } else if (targetPiece === null) {
+        // place source piece on target tile, remove source piece from source tile
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
     } else {
         // kill source piece only
-        deadPieces.push(board[source[0]][source[1]] as Piece);
+        deadPieces.push(sourcePiece);
         board[source[0]][source[1]] = null;
     }
     return { board, deadPieces };
