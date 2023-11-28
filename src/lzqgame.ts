@@ -663,14 +663,16 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
     if (targetPiece && sourcePiece.affiliation === targetPiece.affiliation) {
         return { board, deadPieces };
     }
-
-    if (
-        targetPiece &&
-        (sourcePiece.name === 'bomb' ||
+    if (targetPiece === null) {
+        // place source piece on target tile, remove source piece from source tile
+        board[target[0]][target[1]] = sourcePiece;
+        board[source[0]][source[1]] = null;
+    } else if (     
+        sourcePiece.name === 'bomb' ||
             sourcePiece.name === targetPiece.name ||
             targetPiece.name === 'bomb' ||
             (sourcePiece.name !== 'engineer' &&
-                targetPiece.name === 'landmine'))
+                targetPiece.name === 'landmine')
     ) {
         // kill both pieces
         deadPieces.push(targetPiece, sourcePiece);
@@ -682,10 +684,6 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
         // kill target piece
         deadPieces.push(targetPiece);
         
-        // place source piece on target tile, remove source piece from source tile
-        board[target[0]][target[1]] = sourcePiece;
-        board[source[0]][source[1]] = null;
-    } else if (targetPiece === null) {
         // place source piece on target tile, remove source piece from source tile
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
