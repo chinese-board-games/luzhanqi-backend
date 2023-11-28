@@ -465,9 +465,12 @@ const emplaceBoardFog = (
         }),
     );
 
-    const myDeadPieces = game.deadPieces.filter(
-        (piece) => piece.affiliation == playerIndex,
-    );
+    const myDeadPieces = game.deadPieces.map((piece) => {
+        if (piece.affiliation !== playerIndex) {
+            return { ...piece, name: 'enemy', order: -1 };
+        }
+        return piece;
+    });
 
     myBoard.forEach((row: Piece[], y: number) => {
         // for each space
@@ -667,23 +670,23 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
         // place source piece on target tile, remove source piece from source tile
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
-    } else if (     
+    } else if (
         sourcePiece.name === 'bomb' ||
-            sourcePiece.name === targetPiece.name ||
-            targetPiece.name === 'bomb' ||
-            (sourcePiece.name !== 'engineer' &&
-                targetPiece.name === 'landmine')
+        sourcePiece.name === targetPiece.name ||
+        targetPiece.name === 'bomb' ||
+        (sourcePiece.name !== 'engineer' && targetPiece.name === 'landmine')
     ) {
         // kill both pieces
         deadPieces.push(targetPiece, sourcePiece);
         board[target[0]][target[1]] = null;
         board[source[0]][source[1]] = null;
-    } else if (sourcePiece.order > targetPiece.order ||
+    } else if (
+        sourcePiece.order > targetPiece.order ||
         (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
     ) {
         // kill target piece
         deadPieces.push(targetPiece);
-        
+
         // place source piece on target tile, remove source piece from source tile
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
@@ -914,7 +917,9 @@ async function playerForfeit(
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
-    io.sockets.in(gid).emit('endGame', { winnerIndex, gameStats });
+    io.sockets
+        .in(gid)
+        .emit('endGame', { winnerIndex, gameStats, finalGame: myGame });
 }
 
 /**
