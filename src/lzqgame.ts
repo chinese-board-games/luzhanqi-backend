@@ -673,10 +673,7 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
                 targetPiece.name === 'landmine'))
     ) {
         // kill both pieces
-        deadPieces.push(
-            board[target[0]][target[1]] as Piece,
-            board[source[0]][source[1]] as Piece,
-        );
+        deadPieces.push(targetPiece, sourcePiece);
         board[target[0]][target[1]] = null;
         board[source[0]][source[1]] = null;
     } else if (sourcePiece.order > targetPiece.order ||
