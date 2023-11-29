@@ -8,7 +8,8 @@ import debugLib from 'debug';
 import http from 'http';
 import app from './app';
 import { initGame } from './lzqgame';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
+import HTTPSocketIOServer from './HTTPSocketIOServer';
 
 const debug = debugLib('your-project-name:server');
 
@@ -17,29 +18,13 @@ const debug = debugLib('your-project-name:server');
  */
 
 const server = http.createServer(app);
-const options = {
-    maxHttpBufferSize: 1e8,
-    cors: {
-        origin: [
-            /http:\/\/localhost:\d+\/*/, // local development
-            /.*lzq\.surge\.sh.*/,
-            /.*lzq-staging\.surge\.sh.*/,
-            /.*luzhanqi\.netlify\.app.*/,
-            /.*luzhanqi-staging\.netlify\.app.*/,
-        ],
-        methods: ['GET', 'POST'],
-    },
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000,
-        skipMiddlewares: true,
-    },
-};
 
-const io = new Server(server, options);
+const io = HTTPSocketIOServer(server);
+
 io.on('connection', (socket: Socket) => {
     console.info(`Client connected on ${socket.id}`);
     console.info(`Socket recovered: ${socket.recovered}`);
-    initGame(io, socket);
+    initGame(socket);
 });
 
 /**
@@ -91,3 +76,5 @@ function onListening() {
     console.info(`Listening on ${bind}`);
     debug(`Listening on ${bind}`);
 }
+
+export default io;
