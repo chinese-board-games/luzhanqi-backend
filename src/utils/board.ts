@@ -9,6 +9,11 @@ import { createPiece } from './piece';
  */
 export type Board = (Piece | null)[][];
 
+export const transformBoard = (board: Board) =>
+    board.map((row, y) =>
+        row.map((_piece, x) => board[board.length - 1 - y][row.length - 1 - x]),
+    );
+
 /**
  *
  * @returns An empty 12 by 5 board.

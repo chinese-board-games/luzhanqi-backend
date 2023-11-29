@@ -21,6 +21,7 @@ import {
     pieces,
     emplaceBoardFog,
     pieceMovement,
+    transformBoard,
 } from './utils';
 import { Board, Piece } from './types';
 
@@ -221,8 +222,7 @@ export async function playerInitialBoard(
             console.info('Confirmed host');
             halfGameBoard = myPositions;
         } else {
-            // the guest
-            halfGameBoard = myPositions.reverse();
+            halfGameBoard = transformBoard(myPositions);
         }
         const [isValid, validationErrorStack] = validateSetup(
             halfGameBoard,
@@ -243,9 +243,10 @@ export async function playerInitialBoard(
             completeGameBoard = myGame.board.concat(myPositions);
         } else if (playerIndex === 1) {
             // the guest
-            completeGameBoard = myPositions
-                .reverse()
-                .concat(myGame.board as [][]);
+
+            completeGameBoard = transformBoard(myPositions).concat(
+                myGame.board as [][],
+            );
         }
         await updateBoard(gid, completeGameBoard);
         myGame = await getGameById(gid);
