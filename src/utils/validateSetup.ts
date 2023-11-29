@@ -1,5 +1,6 @@
 import { pieces, Piece } from './piece';
 import { isHQ, isCamp, iterBoard } from './core';
+import { transformBoard } from './board';
 
 /**
  * The complete type of a game piece.
@@ -22,13 +23,13 @@ import { isHQ, isCamp, iterBoard } from './core';
  * @returns {boolean} Whether the half board is valid or not.
  */
 export function validateSetup(
-    halfBoard: Piece[][],
+    halfBoard: (Piece | null)[][],
     isHostHalf: boolean,
 ): [boolean, string[]] {
     const errors = [];
     // flip the board if neccessary
     if (isHostHalf) {
-        halfBoard = [...halfBoard].reverse();
+        halfBoard = transformBoard(halfBoard);
     }
 
     // validate shape
@@ -43,7 +44,8 @@ export function validateSetup(
     }
 
     const pieceCount = (name: string) => {
-        return halfBoard.flat().filter((p: Piece) => p?.name === name).length;
+        return halfBoard.flat().filter((p: Piece | null) => p?.name === name)
+            .length;
     };
 
     // validate piece counts

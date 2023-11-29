@@ -23,6 +23,9 @@ export interface Piece {
     affiliation: number;
     order: number;
     kills: number;
+    0: number;
+    1: number;
+    length: number;
 }
 
 /**
@@ -42,6 +45,9 @@ export const createPiece = (name: string, affiliation: number): Piece => {
         affiliation,
         order: pieces[name].order,
         kills: 0,
+        0: -1,
+        1: -1,
+        length: 2,
     };
 };
 
