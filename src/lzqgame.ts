@@ -143,6 +143,7 @@ async function playerJoinRoom(
         joinRoomId: string;
         mySocketId: string;
         players: string[];
+        spectators: string[];
     },
 ) {
     console.info(
@@ -184,6 +185,7 @@ async function playerJoinRoom(
                 (await addGame(data.clientId, myUpdatedGame._id.toString()));
 
             const players = await getPlayers(data.joinRoomId);
+            const spectators = await getSpectators(data.joinRoomId);
             if (!players) {
                 console.error('Player could not be added to given game');
                 this.emit('error', [
@@ -192,6 +194,7 @@ async function playerJoinRoom(
                 return;
             }
             data.players = players;
+            data.spectators = spectators || [];
             this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
