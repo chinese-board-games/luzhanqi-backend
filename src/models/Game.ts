@@ -12,6 +12,9 @@ interface IGame extends Document {
     players: Array<string>;
     playerToSocketIdMap: Map<string, string>;
     playerToUidMap: Map<string, string | null>;
+    spectators: Array<string>;
+    spectatorToSocketIdMap: Map<string, string>;
+    spectatorToUidMap: Map<string, string | null>;
     moves: Array<{
         source: Array<number>;
         target: Array<number>;
@@ -25,6 +28,12 @@ interface IGame extends Document {
             kills: number;
         }>
     > | null;
+    deadPieces: Array<{
+        name: string;
+        affiliation: number;
+        order: number;
+        kills: number;
+    }>;
     winnerId: string | null;
     config: IGameConfig;
 }
@@ -42,9 +51,13 @@ const GameSchema = new Schema<IGame, GameModelType>(
         players: [],
         playerToUidMap: Map,
         playerToSocketIdMap: Map,
+        spectators: [],
+        spectatorToUidMap: Map,
+        spectatorToSocketIdMap: Map,
         moves: [],
         turn: Number,
         board: [],
+        deadPieces: [],
         winnerId: String,
         config: new Schema<IGameConfig>({
             fogOfWar: Boolean,

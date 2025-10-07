@@ -34,11 +34,13 @@ export const getUser = async (uid: string) => {
 export const addGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
-        console.info(`Adding game ${gameId} to ${uid}`)
+        console.info(`Adding game ${gameId} to ${uid}`);
         const myGame = await getGameById(gameId);
         if (myGame) {
             if (myUser.games.includes(gameId)) {
-                console.info(`Attempted to add Game ${gameId} to User ${uid} when Game already in games list.`)
+                console.info(
+                    `Attempted to add Game ${gameId} to User ${uid} when Game already in games list.`,
+                );
                 return myUser;
             }
             myUser.games.push(gameId);
@@ -47,7 +49,7 @@ export const addGame = async (uid: string, gameId: string) => {
         } else {
             console.error('Game not found');
         }
-    } else { 
+    } else {
         console.error('User not found');
     }
 };
@@ -55,9 +57,11 @@ export const addGame = async (uid: string, gameId: string) => {
 export const removeGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
-        console.info(`Removing game ${typeof gameId} ${gameId} from ${uid}`)
-        myUser.games = myUser.games.filter((game) => game !== gameId);
-        await myUser.save();
+        console.info(`Removing game ${typeof gameId} ${gameId} from ${uid}`);
+        if (myUser.games.includes(uid)) {
+            myUser.games = myUser.games.filter((game) => game !== gameId);
+            await myUser.save();
+        }
         return myUser;
     }
     console.error('User not found');

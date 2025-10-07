@@ -6,13 +6,17 @@ import {
     addClient,
     removePlayer,
     getPlayers,
+    addSpectator,
+    getSpectators,
     isPlayerTurn,
     getMoveHistory,
+    getDeadPieces,
     updateBoard,
     updateGame,
     winner,
     deleteGame,
     getGameById,
+    removeSpectator,
 } from './controllers/gameController';
 import { addGame, removeGame } from './controllers/userController';
 import {
@@ -43,6 +47,10 @@ export const initGame = (sio: Server, socket: Socket) => {
     gameSocket.on('playerMakeMove', playerMakeMove);
     gameSocket.on('playerForfeit', playerForfeit);
     gameSocket.on('playerInitialBoard', playerInitialBoard);
+
+    // Spectator Events
+    gameSocket.on('spectateRoom', spectateRoom);
+    gameSocket.on('spectatorLeaveRoom', spectatorLeaveRoom);
 
     // Utility Events
     gameSocket.on('pieceSelection', pieceSelection);
@@ -111,7 +119,7 @@ async function hostPrepareGame(
         turn: 0,
     };
     if (gameConfig) {
-        const res = await Game.findByIdAndUpdate(
+        await Game.findByIdAndUpdate(
             gid,
             { $set: { config: gameConfig } },
             { new: true },
@@ -135,6 +143,7 @@ async function playerJoinRoom(
         joinRoomId: string;
         mySocketId: string;
         players: string[];
+        spectators: string[];
     },
 ) {
     console.info(
@@ -146,12 +155,14 @@ async function playerJoinRoom(
         this.emit('error', [
             'This game does not exist. Please enter a valid room ID.',
         ]);
+    } else if (existingPlayers.length == 2) {
+        this.emit('error', ['There are already two players in this game.']);
     } else if (existingPlayers.includes(data.playerName)) {
         this.emit('error', [
-            'There is already a player in this game by that name. Please choose another.',
+            'There is already a player in this game by that name. Please choose another name.',
         ]);
     } else {
-                console.info(`Room: ${data.joinRoomId}`);
+        console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
         data.mySocketId = this.id;
 
@@ -174,6 +185,7 @@ async function playerJoinRoom(
                 (await addGame(data.clientId, myUpdatedGame._id.toString()));
 
             const players = await getPlayers(data.joinRoomId);
+            const spectators = await getSpectators(data.joinRoomId);
             if (!players) {
                 console.error('Player could not be added to given game');
                 this.emit('error', [
@@ -182,7 +194,8 @@ async function playerJoinRoom(
                 return;
             }
             data.players = players;
-                        this.emit('youHaveJoinedTheRoom', data);
+            data.spectators = spectators || [];
+            this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
@@ -213,7 +226,9 @@ async function playerLeaveRoom(
     const existingPlayers = await getPlayers(data.leaveRoomId);
 
     if (!existingPlayers) {
-        this.emit('error', ['Attempting to leave room that does not exist.']);
+        this.emit('error', [
+            'Attempting to leave room that does not exist or does not contain players.',
+        ]);
         return;
     }
     console.info(`Room: ${data.leaveRoomId}`);
@@ -287,7 +302,159 @@ async function playerLeaveRoom(
     }
 }
 
-const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
+/**
+ * A user clicked the 'Spectate Game' button.
+ * Attempt to connect them to the room that matches
+ * the gameId entered by the user.
+ * @param data Contains data entered via spectator's input - spectatorName and gameId.
+ */
+async function spectateRoom(
+    this: Socket,
+    data: {
+        spectatorName: string;
+        clientId: string | null;
+        joinRoomId: string;
+        mySocketId: string;
+        spectators: string[];
+        players: string[];
+    },
+) {
+    console.info(
+        `Spectator ${data.spectatorName} attempting to join room: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
+    );
+
+    const existingGame = await getGameById(data.joinRoomId);
+
+    if (!existingGame?.players) {
+        this.emit('error', [
+            'This game does not exist. Please enter a valid room ID.',
+        ]);
+    } else if (existingGame.moves.length) {
+        this.emit('error', [
+            'Unable to spectate game that has already started.',
+        ]);
+    } else if (
+        existingGame.spectators?.length &&
+        existingGame.spectators.includes(data.spectatorName)
+    ) {
+        this.emit('error', [
+            'There is already a spectator by that name. Please choose another name.',
+        ]);
+    } else {
+        console.info(`Room: ${data.joinRoomId}`);
+        // attach the socket id to the data object.
+        data.mySocketId = this.id;
+
+        // Join the room
+        this.join(data.joinRoomId);
+
+        console.info(
+            `Spectator ${data.spectatorName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
+        );
+
+        const myUpdatedGame = await addSpectator({
+            gid: data.joinRoomId,
+            spectatorName: data.spectatorName,
+            clientId: data.clientId,
+            mySocketId: data.mySocketId,
+        });
+        if (myUpdatedGame) {
+            // add the Game _id to the player's User document if they are logged in
+            data.clientId &&
+                (await addGame(data.clientId, myUpdatedGame._id.toString()));
+
+            const spectators = await getSpectators(data.joinRoomId);
+            const players = await getPlayers(data.joinRoomId);
+
+            if (!spectators) {
+                console.error('Could not spectate given game');
+                this.emit('error', [
+                    `${data.spectatorName} could not spectate game: ${data.joinRoomId}`,
+                ]);
+                return;
+            }
+            data.spectators = spectators;
+            data.players = existingGame.players;
+            this.emit('youAreSpectatingTheRoom');
+            io.sockets.in(data.joinRoomId).emit('spectatorJoinedRoom', data);
+        } else {
+            console.error('Could not spectate given game');
+            this.emit('error', [
+                `${data.spectatorName} could not spectate game: ${data.joinRoomId}`,
+            ]);
+        }
+    }
+}
+
+/**
+ * The spectator wants to leave the game. Remove only the spectator.
+ * @param roomId The room ID
+ */
+async function spectatorLeaveRoom(
+    this: Socket,
+    data: {
+        spectatorName: string;
+        uid: string | null;
+        leaveRoomId: string;
+        spectators: string[];
+    },
+) {
+    console.info(
+        `Player with name: ${data.spectatorName} leaving room ${data.leaveRoomId}`,
+    );
+    // clean up by removing the spectator from DB
+    const existingSpectators = await getSpectators(data.leaveRoomId);
+
+    if (!existingSpectators) {
+        this.emit('error', [
+            'Attempting to leave room that does not exist or does not contain spectators.',
+        ]);
+        return;
+    }
+    console.info(`Room: ${data.leaveRoomId}`);
+
+    // Leave the room
+    this.leave(data.leaveRoomId);
+
+    console.info(
+        `Player ${data.spectatorName} leaving room: ${data.leaveRoomId} at socket: ${this.id}`,
+    );
+
+    const myUpdatedGame = await removeSpectator({
+        gid: data.leaveRoomId,
+        spectatorName: data.spectatorName,
+        clientId: data.uid,
+    });
+    if (myUpdatedGame) {
+        // // remove the Game id from the player's User document if they are logged in
+        // data.uid &&
+        //     (await removeGame(data.uid, myUpdatedGame._id.toString()));
+
+        const spectators = await getSpectators(data.leaveRoomId);
+        if (spectators?.includes(data.spectatorName)) {
+            console.error('Spectator could not be removed from given room');
+            this.emit('error', [
+                `${data.spectatorName} could not be removed from room: ${data.leaveRoomId}`,
+            ]);
+            return;
+        }
+        data.spectators = spectators || [];
+        this.emit('youHaveLeftTheRoom');
+        io.sockets.in(data.leaveRoomId).emit('spectatorLeftRoom', data);
+    } else {
+        console.error(
+            `Spectator ${data.spectatorName} could not be removed from given room`,
+        );
+        this.emit('error', [
+            `Spectator ${data.spectatorName} could not be removed from room: ${data.leaveRoomId}`,
+        ]);
+    }
+}
+
+const emplaceBoardFog = (
+    game: { board: Piece[][]; deadPieces: Piece[] },
+    playerIndex: number,
+) => {
     // copy the board because we are diverging them
     const myBoard = cloneDeep(game.board);
     const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
@@ -298,6 +465,10 @@ const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
                 space.name === 'field_marshall'
             );
         }),
+    );
+
+    const myDeadPieces = game.deadPieces.filter(
+        (piece) => piece.affiliation == playerIndex,
     );
 
     myBoard.forEach((row: Piece[], y: number) => {
@@ -323,6 +494,7 @@ const emplaceBoardFog = (game: { board: Piece[][] }, playerIndex: number) => {
     });
     const myGame = cloneDeep(game);
     myGame.board = myBoard;
+    myGame.deadPieces = myDeadPieces;
     printBoard(myBoard);
     return myGame;
 };
@@ -392,7 +564,7 @@ async function playerInitialBoard(
         myGame.playerToSocketIdMap.forEach(
             (socketId: string, instPlayerName: string) => {
                 console.info(
-                    `Sending board to ${instPlayerName} on socket: ${socketId}`,
+                    `Sending board to player ${instPlayerName} on socket: ${socketId}`,
                 );
 
                 if (!myGame) {
@@ -408,11 +580,33 @@ async function playerInitialBoard(
                     'boardSet',
                     myGame.config.fogOfWar
                         ? emplaceBoardFog(
-                              myGame as unknown as { board: Piece[][] },
+                              myGame as unknown as {
+                                  board: Piece[][];
+                                  deadPieces: Piece[];
+                              },
                               playerIndex,
                           )
                         : myGame,
                 );
+            },
+        );
+        myGame.spectatorToSocketIdMap.forEach(
+            (socketId: string, instSpectatorName: string) => {
+                console.info(
+                    `Sending board to spectator ${instSpectatorName} on socket: ${socketId}`,
+                );
+
+                if (!myGame) {
+                    console.error('Game not found.');
+                    this.emit('error', [`$Game not found: ${gid}`]);
+                    return;
+                }
+
+                const spectatorIndex =
+                    myGame.spectators.indexOf(instSpectatorName);
+                console.info(`spectatorIndex: ${spectatorIndex}`);
+
+                io.to(socketId).emit('boardSet', myGame);
             },
         );
     }
@@ -449,9 +643,10 @@ async function pieceSelection(
 function pieceMovement(board: Board, source: Piece, target: Piece) {
     // copy the board
     board = cloneDeep(board);
+    const deadPieces: Piece[] = [];
 
     if (!source.length || !target.length) {
-        return board;
+        return { board, deadPieces };
     }
 
     const sourcePiece = board[source[0]][source[1]];
@@ -463,12 +658,12 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
         sourcePiece.name === 'landmine' ||
         sourcePiece.name === 'flag'
     ) {
-        return board;
+        return { board, deadPieces };
     }
 
     // pieces are of same affiliation
     if (targetPiece && sourcePiece.affiliation === targetPiece.affiliation) {
-        return board;
+        return { board, deadPieces };
     }
 
     if (
@@ -480,6 +675,10 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
                 targetPiece.name === 'landmine'))
     ) {
         // remove both pieces
+        deadPieces.push(
+            board[target[0]][target[1]] as Piece,
+            board[source[0]][source[1]] as Piece,
+        );
         board[target[0]][target[1]] = null;
         board[source[0]][source[1]] = null;
     } else if (
@@ -487,15 +686,18 @@ function pieceMovement(board: Board, source: Piece, target: Piece) {
         sourcePiece.order > targetPiece.order ||
         (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
     ) {
-        // both pieces die
         // place source piece on target tile, remove source piece from source tile
+        if (sourcePiece) {
+            deadPieces.push(sourcePiece);
+        }
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
     } else {
         // kill source piece only
+        deadPieces.push(board[source[0]][source[1]] as Piece);
         board[source[0]][source[1]] = null;
     }
-    return board;
+    return { board, deadPieces };
 }
 
 // return game stats in the form of a nested array
@@ -595,7 +797,11 @@ async function playerMakeMove(
         }
         const myBoard = myGame.board;
         const { source, target } = pendingMove;
-        const newBoard = pieceMovement(myBoard as Board, source, target);
+        const { board: newBoard, deadPieces } = pieceMovement(
+            myBoard as Board,
+            source,
+            target,
+        );
         if (isEqual(newBoard, myBoard)) {
             this.emit('error', ['No move made.']);
         } else {
@@ -604,6 +810,7 @@ async function playerMakeMove(
             // print the board
             printBoard(newBoard);
             const moveHistory = await getMoveHistory(gid);
+            const deadPieceHistory = await getDeadPieces(gid);
             if (!moveHistory) {
                 console.error('Move history not found.');
                 this.emit('error', [`$Move history not found: ${gid}`]);
@@ -612,6 +819,7 @@ async function playerMakeMove(
             await updateGame(gid, {
                 turn,
                 moves: [...moveHistory, pendingMove],
+                deadPieces: [...(deadPieceHistory || []), ...deadPieces],
             });
             myGame = await getGameById(gid);
 
@@ -623,8 +831,6 @@ async function playerMakeMove(
 
             console.info(`Someone made a move, the turn is now ${turn}`);
             console.info(`Sending back gameState on ${gid}`);
-            console.info(`myGame.playerToSocketIdMap: `);
-            console.info(myGame.playerToSocketIdMap);
             myGame.playerToSocketIdMap.forEach(
                 (socketId: string, instPlayerName: string) => {
                     console.info(
@@ -644,7 +850,10 @@ async function playerMakeMove(
                         'playerMadeMove',
                         myGame.config.fogOfWar
                             ? emplaceBoardFog(
-                                  myGame as unknown as { board: Piece[][] },
+                                  myGame as unknown as {
+                                      board: Piece[][];
+                                      deadPieces: Piece[];
+                                  },
                                   playerIndex,
                               )
                             : myGame,
@@ -652,11 +861,35 @@ async function playerMakeMove(
                 },
             );
 
+            myGame.spectatorToSocketIdMap.forEach(
+                (socketId: string, instSpectatorName: string) => {
+                    console.info(
+                        `Sending board to ${instSpectatorName} on socket: ${socketId}`,
+                    );
+
+                    if (!myGame) {
+                        console.error('Game not found.');
+                        this.emit('error', [`$Game not found: ${gid}`]);
+                        return;
+                    }
+
+                    const spectatorIndex =
+                        myGame.spectators.indexOf(instSpectatorName);
+                    console.info(`spectatorIndex: ${spectatorIndex}`);
+
+                    io.to(socketId).emit('playerMadeMove', myGame);
+                },
+            );
+
             const winnerIndex = await winner(gid);
             const gameStats = await getGameStats(gid);
             if (winnerIndex !== -1) {
                 console.info('game ended from victory', gameStats);
-                io.sockets.in(gid).emit('endGame', { winnerIndex, gameStats });
+                io.sockets.in(gid).emit('endGame', {
+                    winnerIndex,
+                    gameStats,
+                    finalGame: myGame,
+                });
                 await updateGame(gid, { winnerId: uid || 'anonymous' });
             }
         }
