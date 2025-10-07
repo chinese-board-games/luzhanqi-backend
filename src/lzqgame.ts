@@ -44,8 +44,13 @@ export const initGame = (sio: Server, socket: Socket) => {
     gameSocket.on('playerForfeit', playerForfeit);
     gameSocket.on('playerInitialBoard', playerInitialBoard);
 
+    // Spectator Events
+    gameSocket.on('spectateRoom', spectateRoom);
+    gameSocket.on('spectatorLeaveRoom', spectatorLeaveRoom);
+
     // Utility Events
     gameSocket.on('pieceSelection', pieceSelection);
+    gameSocket.on('getRoomState', getRoomState);
 };
 
 /* *******************************
@@ -147,9 +152,31 @@ async function playerJoinRoom(
             'This game does not exist. Please enter a valid room ID.',
         ]);
     } else if (existingPlayers.includes(data.playerName)) {
-        this.emit('error', [
-            'There is already a player in this game by that name. Please choose another.',
-        ]);
+        // Player already exists - this is a reconnection, send room state
+        console.info(`Player ${data.playerName} reconnecting to room ${data.joinRoomId}`);
+        
+        // Join the room
+        this.join(data.joinRoomId);
+        
+        // Update socket ID mapping for reconnection
+        const myGame = await getGameById(data.joinRoomId);
+        if (myGame) {
+            // Update the socket ID for this player
+            myGame.playerToSocketIdMap.set(data.playerName, this.id);
+            await updateGame(data.joinRoomId, { playerToSocketIdMap: myGame.playerToSocketIdMap });
+            
+            const roomState = {
+                joinRoomId: data.joinRoomId,
+                playerName: data.playerName,
+                players: existingPlayers,
+                gamePhase: myGame.board ? (myGame.board.length === 12 ? 2 : 1) : 0,
+                turn: myGame.turn || 0,
+                board: myGame.board,
+            };
+            
+            this.emit('youHaveJoinedTheRoom', roomState);
+            this.emit('roomState', roomState);
+        }
     } else {
                 console.info(`Room: ${data.joinRoomId}`);
         // attach the socket id to the data object.
@@ -182,7 +209,7 @@ async function playerJoinRoom(
                 return;
             }
             data.players = players;
-                        this.emit('youHaveJoinedTheRoom', data);
+            this.emit('youHaveJoinedTheRoom', data);
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
@@ -700,4 +727,136 @@ function playerRestart(
     // Emit the player's data back to the clients in the game room.
     data.playerId = this.id;
     io.sockets.in(data.gameId).emit('playerJoinedRoom', data);
+}
+
+/* *******************************
+ *                             *
+ *     SPECTATOR FUNCTIONS     *
+ *                             *
+ ******************************* */
+
+/**
+ * A spectator wants to join a room to watch the game.
+ * @param data Contains spectator name and room ID
+ */
+async function spectateRoom(
+    this: Socket,
+    data: {
+        spectatorName: string;
+        roomId: string;
+    },
+) {
+    console.info(
+        `Spectator ${data.spectatorName} attempting to spectate room: ${data.roomId} on socket id: ${this.id}`,
+    );
+
+    const myGame = await getGameById(data.roomId);
+    if (!myGame) {
+        this.emit('error', [
+            'This game does not exist. Please enter a valid room ID.',
+        ]);
+        return;
+    }
+
+    // Join the room
+    this.join(data.roomId);
+
+    console.info(
+        `Spectator ${data.spectatorName} spectating game: ${data.roomId} at socket: ${this.id}`,
+    );
+
+    const players = await getPlayers(data.roomId);
+    if (!players) {
+        console.error('Could not get players for game');
+        this.emit('error', [
+            `${data.spectatorName} could not spectate game: ${data.roomId}`,
+        ]);
+        return;
+    }
+
+    // Send room state to the spectator
+    const roomState = {
+        roomId: data.roomId,
+        spectatorName: data.spectatorName,
+        players,
+        gamePhase: myGame.board ? (myGame.board.length === 12 ? 2 : 1) : 0,
+        turn: myGame.turn || 0,
+        board: myGame.board,
+    };
+
+    this.emit('youHaveJoinedAsSpectator', roomState);
+    io.sockets.in(data.roomId).emit('spectatorJoinedRoom', {
+        spectatorName: data.spectatorName,
+    });
+}
+
+/**
+ * A spectator wants to leave the room.
+ * @param data Contains spectator name and room ID
+ */
+async function spectatorLeaveRoom(
+    this: Socket,
+    data: {
+        spectatorName: string;
+        roomId: string;
+    },
+) {
+    console.info(
+        `Spectator ${data.spectatorName} leaving room ${data.roomId}`,
+    );
+
+    // Leave the room
+    this.leave(data.roomId);
+
+    console.info(
+        `Spectator ${data.spectatorName} left room: ${data.roomId} at socket: ${this.id}`,
+    );
+
+    io.sockets.in(data.roomId).emit('spectatorLeftRoom', {
+        spectatorName: data.spectatorName,
+    });
+}
+
+/* *******************************
+ *                             *
+ *      UTILITY FUNCTIONS      *
+ *                             *
+ ******************************* */
+
+/**
+ * Get the current state of a room for rehydration
+ * @param data Contains room ID
+ */
+async function getRoomState(
+    this: Socket,
+    data: { roomId: string },
+) {
+    console.info(`Getting room state for room: ${data.roomId}`);
+
+    const myGame = await getGameById(data.roomId);
+    if (!myGame) {
+        this.emit('error', [
+            'This game does not exist. Please enter a valid room ID.',
+        ]);
+        return;
+    }
+
+    const players = await getPlayers(data.roomId);
+    if (!players) {
+        console.error('Could not get players for game');
+        this.emit('error', [
+            `Could not get state for game: ${data.roomId}`,
+        ]);
+        return;
+    }
+
+    const roomState = {
+        roomId: data.roomId,
+        players,
+        gamePhase: myGame.board ? (myGame.board.length === 12 ? 2 : 1) : 0,
+        turn: myGame.turn || 0,
+        board: myGame.board,
+    };
+
+    this.emit('roomState', roomState);
 }
