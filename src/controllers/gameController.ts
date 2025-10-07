@@ -81,10 +81,10 @@ export const deleteGame = async (gid: string) => {
  * @param {Object} { gid, playerName, clientId, mySocketId } the game ID, joining player name, optional clientId if logged in, socketMap
  * @returns {Object} the updated Game object as defined in Game.js on success
  * @returns {null} on failure
- * @see addPlayer
+ * @see addClient
  */
 
-export const addPlayer = async ({
+export const addClient = async ({
     gid,
     playerName,
     clientId,

@@ -3,7 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import Game, { GameConfigData } from './models/Game';
 import {
     createGame,
-    addPlayer,
+    addClient,
     removePlayer,
     getPlayers,
     addSpectator,
@@ -173,7 +173,7 @@ async function playerJoinRoom(
             `Player ${data.playerName} joining game: ${data.joinRoomId} at socket: ${this.id}`,
         );
 
-        const myUpdatedGame = await addPlayer({
+        const myUpdatedGame = await addClient({
             gid: data.joinRoomId,
             playerName: data.playerName,
             clientId: data.clientId,
@@ -457,7 +457,6 @@ const emplaceBoardFog = (
 ) => {
     // copy the board because we are diverging them
     const myBoard = cloneDeep(game.board);
-
     const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
         row.some((space: Piece | null) => {
             return (
