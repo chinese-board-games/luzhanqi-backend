@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: luzhanqi-backend
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+
+  - type: web
+    name: luzhanqi-backend-staging
+    runtime: docker
+    plan: free
+    branch: staging
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
