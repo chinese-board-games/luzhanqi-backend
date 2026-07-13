@@ -15,7 +15,7 @@ services:
     name: luzhanqi-backend-staging
     runtime: docker
     plan: free
-    branch: staging
+    branch: main
     autoDeploy: true
     envVars:
       - key: NODE_ENV
