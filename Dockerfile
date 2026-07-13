@@ -9,5 +9,8 @@ RUN npm install && npm cache clean --force
 
 ENV PATH=./node_modules/.bin:$PATH
 
-# Running default command 
-CMD ["npm", "run", "dev"]
+# Compile TypeScript for production
+RUN npm run build
+
+# Running default command
+CMD ["npm", "run", "prod"]
