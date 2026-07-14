@@ -1,4 +1,3 @@
-import { isEqual, cloneDeep } from 'lodash';
 import type { Server, Socket } from 'socket.io';
 import Game, { GameConfigData } from './models/Game';
 import {
@@ -8,28 +7,34 @@ import {
     getPlayers,
     addSpectator,
     getSpectators,
-    isPlayerTurn,
-    getMoveHistory,
-    getDeadPieces,
-    updateBoard,
-    updateGame,
-    winner,
-    deleteGame,
     getGameById,
     removeSpectator,
+    updateGame,
+    sanitizeGameForClient,
+    addAiPlayer,
+    deleteGame,
+    winner,
 } from './controllers/gameController';
 import { addGame, removeGame } from './controllers/userController';
 import {
-    getSuccessors,
-    printBoard,
-    validateSetup,
-    pieces,
-    createPiece,
-} from './utils';
+    applyMove,
+    submitInitialBoard,
+    submitAiInitialBoard,
+    broadcastGameState,
+    getGameStats,
+} from './services/gameplayService';
+import { getSuccessors, emplaceBoardFog } from './utils';
+import { chooseAiMove } from './utils/aiPlayer';
+import { AI_PLAYER_NAME } from './utils/aiConstants';
 import { Board, Piece } from './types';
 
 let io: Server;
 let gameSocket: Socket;
+
+// tracks which (gid, playerName) seat a live socket currently occupies,
+// purely so we can announce a disconnect to the room - reconnection itself
+// is handled by the DB-backed token, not this in-memory registry.
+const socketSeatRegistry = new Map<string, { gid: string; playerName: string }>();
 
 export const initGame = (sio: Server, socket: Socket) => {
     io = sio;
@@ -42,6 +47,7 @@ export const initGame = (sio: Server, socket: Socket) => {
 
     // Player Events
     gameSocket.on('playerJoinRoom', playerJoinRoom);
+    gameSocket.on('playerRejoinRoom', playerRejoinRoom);
     gameSocket.on('playerLeaveRoom', playerLeaveRoom);
     gameSocket.on('playerRestart', playerRestart);
     gameSocket.on('playerMakeMove', playerMakeMove);
@@ -54,6 +60,9 @@ export const initGame = (sio: Server, socket: Socket) => {
 
     // Utility Events
     gameSocket.on('pieceSelection', pieceSelection);
+
+    // Connection Events
+    gameSocket.on('disconnect', playerDisconnect);
 };
 
 /* *******************************
@@ -74,7 +83,7 @@ async function hostCreateNewGame(
     }: {
         playerName: string;
         hostId: string | null;
-        gameConfig: GameConfigData;
+        gameConfig?: Partial<GameConfigData>;
     },
 ) {
     const myGame = await createGame({
@@ -86,17 +95,31 @@ async function hostCreateNewGame(
     if (myGame) {
         // MongoDB ObjectIds are BSON by default, ensure roomIds are always strings
         const string_gid = myGame._id.toString();
+
+        // Join the room and wait for the players
+        this.join(string_gid);
+        socketSeatRegistry.set(this.id, { gid: string_gid, playerName });
+
+        let finalGame = myGame;
+        if (gameConfig?.opponentType === 'ai') {
+            const withAi = await addAiPlayer(string_gid);
+            if (withAi) {
+                finalGame = withAi;
+                await submitAiInitialBoard(string_gid);
+            }
+        }
+
         this.emit('newGameCreated', {
             gameId: string_gid,
             mySocketId: this.id,
-            players: await getPlayers(string_gid),
+            players: finalGame.players,
+            phase: finalGame.phase,
+            token: finalGame.playerToTokenMap.get(playerName),
         });
         console.info(
             `New game created with ID: ${string_gid} at socket: ${this.id}`,
         );
 
-        // Join the room and wait for the players
-        this.join(string_gid);
         // Add the Game _id to the host's User document if they are logged in
         hostId && (await addGame(hostId, string_gid));
     } else {
@@ -118,13 +141,11 @@ async function hostPrepareGame(
         roomId: gid,
         turn: 0,
     };
+    const updateFields: Record<string, unknown> = { phase: 1 };
     if (gameConfig) {
-        await Game.findByIdAndUpdate(
-            gid,
-            { $set: { config: gameConfig } },
-            { new: true },
-        );
+        updateFields.config = gameConfig;
     }
+    await Game.findByIdAndUpdate(gid, { $set: updateFields }, { new: true });
     console.info(`All players present. Preparing game for room ${gid}`);
     io.sockets.in(gid).emit('beginNewGame', data);
 }
@@ -195,7 +216,15 @@ async function playerJoinRoom(
             }
             data.players = players;
             data.spectators = spectators || [];
-            this.emit('youHaveJoinedTheRoom', data);
+            socketSeatRegistry.set(this.id, {
+                gid: data.joinRoomId,
+                playerName: data.playerName,
+            });
+            this.emit('youHaveJoinedTheRoom', {
+                ...data,
+                token: myUpdatedGame.playerToTokenMap.get(data.playerName),
+                phase: myUpdatedGame.phase,
+            });
             io.sockets.in(data.joinRoomId).emit('playerJoinedRoom', data);
         } else {
             console.error('Player could not be added to given game');
@@ -204,6 +233,92 @@ async function playerJoinRoom(
             ]);
         }
     }
+}
+
+/**
+ * A player's browser reconnected (page reload, closed tab reopened, etc).
+ * Reclaims their seat if the provided token matches the one issued when
+ * they originally joined, then sends them a full snapshot of the game.
+ */
+async function playerRejoinRoom(
+    this: Socket,
+    {
+        gameId,
+        playerName,
+        token,
+    }: { gameId: string; playerName: string; token: string },
+) {
+    console.info(
+        `Player ${playerName} attempting to rejoin room: ${gameId} on socket id: ${this.id}`,
+    );
+
+    const myGame = await getGameById(gameId);
+    if (!myGame) {
+        this.emit('rejoinFailed', { gameId, reason: 'game-not-found' });
+        return;
+    }
+    if (
+        !myGame.players.includes(playerName) ||
+        myGame.playerToTokenMap.get(playerName) !== token
+    ) {
+        this.emit('rejoinFailed', { gameId, reason: 'invalid-session' });
+        return;
+    }
+
+    myGame.playerToSocketIdMap.set(playerName, this.id);
+    await updateGame(gameId, {
+        playerToSocketIdMap: myGame.playerToSocketIdMap,
+    });
+    this.join(gameId);
+    socketSeatRegistry.set(this.id, { gid: gameId, playerName });
+
+    const playerIndex = myGame.players.indexOf(playerName);
+    const boardComplete = Array.isArray(myGame.board) && myGame.board.length === 12;
+    let board = null;
+    let deadPieces: unknown[] = [];
+    if (boardComplete) {
+        const view = myGame.config.fogOfWar
+            ? emplaceBoardFog(
+                  myGame as unknown as { board: Piece[][]; deadPieces: Piece[] },
+                  playerIndex,
+              )
+            : myGame;
+        board = view.board;
+        deadPieces = view.deadPieces;
+    }
+
+    let winnerIndex: number | null = null;
+    let gameStats = null;
+    if (myGame.phase === 3 && boardComplete) {
+        winnerIndex = await winner(gameId);
+        gameStats = await getGameStats(gameId);
+    }
+
+    this.emit('youHaveRejoinedTheRoom', {
+        gameId,
+        playerName,
+        players: myGame.players,
+        spectators: myGame.spectators,
+        phase: myGame.phase,
+        turn: myGame.turn,
+        board,
+        deadPieces,
+        submittedSide: myGame.playersSubmittedSetup?.includes(playerName) ?? false,
+        winnerIndex,
+        gameStats,
+    });
+    io.sockets.in(gameId).emit('playerReconnected', { playerName });
+}
+
+function playerDisconnect(this: Socket) {
+    const seat = socketSeatRegistry.get(this.id);
+    if (!seat) {
+        return;
+    }
+    socketSeatRegistry.delete(this.id);
+    io.sockets.in(seat.gid).emit('playerDisconnected', {
+        playerName: seat.playerName,
+    });
 }
 
 /**
@@ -234,6 +349,8 @@ async function playerLeaveRoom(
     console.info(`Room: ${data.leaveRoomId}`);
 
     const myGame = await getGameById(data.leaveRoomId);
+
+    socketSeatRegistry.delete(this.id);
 
     if (myGame?.board) {
         // board has already been set, do not delete the Game
@@ -451,54 +568,6 @@ async function spectatorLeaveRoom(
     }
 }
 
-const emplaceBoardFog = (
-    game: { board: Piece[][]; deadPieces: Piece[] },
-    playerIndex: number,
-) => {
-    // copy the board because we are diverging them
-    const myBoard = cloneDeep(game.board);
-    const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
-        row.some((space: Piece | null) => {
-            return (
-                space != null &&
-                space.affiliation !== playerIndex &&
-                space.name === 'field_marshall'
-            );
-        }),
-    );
-
-    const myDeadPieces = game.deadPieces.filter(
-        (piece) => piece.affiliation == playerIndex,
-    );
-
-    myBoard.forEach((row: Piece[], y: number) => {
-        // for each space
-        row.forEach((space: Piece | null, x: number) => {
-            // only replace pieces that are there
-            if (space !== null && space.affiliation !== playerIndex) {
-                // reveal flag if field marshall is captured
-                const isRevealedFlag =
-                    space.name === 'flag' && !enemyHasFieldMarshall;
-
-                // hide piece if is enemy piece and not revealed flag
-                if (!isRevealedFlag) {
-                    myBoard[y][x] = {
-                        0: y,
-                        1: x,
-                        length: 2,
-                        ...createPiece('enemy', 1 - playerIndex), // indicate the affiliation as opposite of oneself
-                    };
-                }
-            }
-        });
-    });
-    const myGame = cloneDeep(game);
-    myGame.board = myBoard;
-    myGame.deadPieces = myDeadPieces;
-    printBoard(myBoard);
-    return myGame;
-};
-
 async function playerInitialBoard(
     this: Socket,
     {
@@ -507,109 +576,21 @@ async function playerInitialBoard(
         room: gid,
     }: {
         playerName: string;
-        myPositions: [][];
+        myPositions: Board;
         room: string;
     },
 ) {
     console.info(`playerInitialBoard from ${playerName} on socket ${this.id}`);
-    let myGame = await getGameById(gid);
-    if (!myGame) {
-        console.error('Game not found.');
-        this.emit('error', [`$Game not found: ${gid}`]);
+    const result = await submitInitialBoard(gid, playerName, myPositions);
+    if (!result.ok) {
+        this.emit('error', result.errors || [result.reason]);
         return;
     }
-    const playerIndex = myGame.players.indexOf(playerName);
-    if (myGame.board === null) {
-        let halfGameBoard;
-        if (playerIndex === 0) {
-            // the host
-            console.info('Confirmed host');
-            halfGameBoard = myPositions;
-        } else {
-            // the guest
-            halfGameBoard = myPositions.reverse();
-        }
-        const [isValid, validationErrorStack] = validateSetup(
-            halfGameBoard,
-            !playerIndex,
-        );
-        if (!isValid) {
-            console.error(validationErrorStack.join(', \n'));
-            this.emit('error', validationErrorStack);
-            return;
-        }
-        await updateBoard(gid, halfGameBoard);
+    if (!result.complete) {
         this.emit('halfBoardReceived');
-    } else if (myGame.board.length === 6) {
-        // only half of the board is filled
-        let completeGameBoard;
-        if (playerIndex === 0) {
-            // the host
-            completeGameBoard = myGame.board.concat(myPositions);
-        } else if (playerIndex === 1) {
-            // the guest
-            completeGameBoard = myPositions
-                .reverse()
-                .concat(myGame.board as [][]);
-        }
-        await updateBoard(gid, completeGameBoard);
-        myGame = await getGameById(gid);
-
-        if (!myGame) {
-            console.error('Game not found.');
-            this.emit('error', [`$Game not found: ${gid}`]);
-            return;
-        }
-
-        myGame.playerToSocketIdMap.forEach(
-            (socketId: string, instPlayerName: string) => {
-                console.info(
-                    `Sending board to player ${instPlayerName} on socket: ${socketId}`,
-                );
-
-                if (!myGame) {
-                    console.error('Game not found.');
-                    this.emit('error', [`$Game not found: ${gid}`]);
-                    return;
-                }
-
-                const playerIndex = myGame.players.indexOf(instPlayerName);
-                console.info(`playerIndex: ${playerIndex}`);
-
-                io.to(socketId).emit(
-                    'boardSet',
-                    myGame.config.fogOfWar
-                        ? emplaceBoardFog(
-                              myGame as unknown as {
-                                  board: Piece[][];
-                                  deadPieces: Piece[];
-                              },
-                              playerIndex,
-                          )
-                        : myGame,
-                );
-            },
-        );
-        myGame.spectatorToSocketIdMap.forEach(
-            (socketId: string, instSpectatorName: string) => {
-                console.info(
-                    `Sending board to spectator ${instSpectatorName} on socket: ${socketId}`,
-                );
-
-                if (!myGame) {
-                    console.error('Game not found.');
-                    this.emit('error', [`$Game not found: ${gid}`]);
-                    return;
-                }
-
-                const spectatorIndex =
-                    myGame.spectators.indexOf(instSpectatorName);
-                console.info(`spectatorIndex: ${spectatorIndex}`);
-
-                io.to(socketId).emit('boardSet', myGame);
-            },
-        );
+        return;
     }
+    await broadcastGameState(io, result.game, 'boardSet');
 }
 
 async function pieceSelection(
@@ -620,7 +601,7 @@ async function pieceSelection(
         playerName,
         room: gid,
     }: {
-        board: [][];
+        board: Board;
         piece: number[];
         playerName: string;
         room: string;
@@ -639,130 +620,6 @@ async function pieceSelection(
     this.emit('pieceSelected', successors);
 }
 
-// returns a new board
-function pieceMovement(board: Board, source: Piece, target: Piece) {
-    // copy the board
-    board = cloneDeep(board);
-    const deadPieces: Piece[] = [];
-
-    if (!source.length || !target.length) {
-        return { board, deadPieces };
-    }
-
-    const sourcePiece = board[source[0]][source[1]];
-    const targetPiece = board[target[0]][target[1]];
-
-    // there is no piece at the source tile (not a valid move)
-    if (
-        sourcePiece === null ||
-        sourcePiece.name === 'landmine' ||
-        sourcePiece.name === 'flag'
-    ) {
-        return { board, deadPieces };
-    }
-
-    // pieces are of same affiliation
-    if (targetPiece && sourcePiece.affiliation === targetPiece.affiliation) {
-        return { board, deadPieces };
-    }
-
-    if (
-        targetPiece &&
-        (sourcePiece.name === 'bomb' ||
-            sourcePiece.name === targetPiece.name ||
-            targetPiece.name === 'bomb' ||
-            (sourcePiece.name !== 'engineer' &&
-                targetPiece.name === 'landmine'))
-    ) {
-        // remove both pieces
-        deadPieces.push(
-            board[target[0]][target[1]] as Piece,
-            board[source[0]][source[1]] as Piece,
-        );
-        board[target[0]][target[1]] = null;
-        board[source[0]][source[1]] = null;
-    } else if (
-        targetPiece === null ||
-        sourcePiece.order > targetPiece.order ||
-        (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
-    ) {
-        // place source piece on target tile, remove source piece from source tile
-        if (sourcePiece) {
-            deadPieces.push(sourcePiece);
-        }
-        board[target[0]][target[1]] = sourcePiece;
-        board[source[0]][source[1]] = null;
-    } else {
-        // kill source piece only
-        deadPieces.push(board[source[0]][source[1]] as Piece);
-        board[source[0]][source[1]] = null;
-    }
-    return { board, deadPieces };
-}
-
-// return game stats in the form of a nested array
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getGameStats(this: any, gid: string) {
-    const myGame = await getGameById(gid);
-    if (!myGame?.board) {
-        console.error('Game or game board not found.');
-        this.emit('error', [`$Game or game board not found: ${gid}`]);
-        return;
-    }
-    // get number of pieces killed by each player
-    const emptyPieceArr = [
-        ...Object.keys(pieces).map((piece) => ({
-            name: piece,
-            count: 0,
-            order: pieces[piece].order,
-        })),
-    ];
-
-    const remain = [
-        // deep copies of emptyPieceArr, strongly typed
-        JSON.parse(JSON.stringify(emptyPieceArr)) as [
-            { name: string; count: number; order: number },
-        ],
-        JSON.parse(JSON.stringify(emptyPieceArr)) as [
-            { name: string; count: number; order: number },
-        ],
-    ];
-    myGame.board.forEach((row) => {
-        row.forEach((piece) => {
-            if (piece) {
-                const affiliation = piece.affiliation;
-                const pieceIndex = remain[affiliation].findIndex(
-                    (p) => p.name === piece.name,
-                );
-                remain[affiliation][pieceIndex].count += 1;
-            }
-        });
-    });
-    // get number of pieces killed by each player
-    const lost = [
-        remain[0].map(({ name, order, count: _count }) => {
-            const pieceIndex = remain[0].findIndex((p) => p.name === name);
-            return {
-                name,
-                count: pieces[name].count - remain[0][pieceIndex].count,
-                order,
-            };
-        }),
-        remain[1].map(({ name, order, count: _count }) => {
-            const pieceIndex = remain[1].findIndex((p) => p.name === name);
-            return {
-                name,
-                count: pieces[name].count - remain[1][pieceIndex].count,
-                order,
-            };
-        }),
-    ];
-    return {
-        remain,
-        lost,
-    };
-}
-
 async function playerMakeMove(
     this: Socket,
     {
@@ -773,128 +630,104 @@ async function playerMakeMove(
         pendingMove,
     }: {
         playerName: string;
-        uid: string;
+        uid: string | null;
         room: string;
         turn: number;
         pendingMove: {
-            source: Piece;
-            target: Piece;
+            source: [number, number];
+            target: [number, number];
         };
     },
 ) {
-    if (
-        await isPlayerTurn({
-            playerName,
-            gid,
-            turn,
-        })
-    ) {
-        let myGame = await getGameById(gid);
-        if (!myGame) {
-            console.error('Game not found.');
-            this.emit('error', [`$Game not found: ${gid}`]);
-            return;
-        }
-        const myBoard = myGame.board;
-        const { source, target } = pendingMove;
-        const { board: newBoard, deadPieces } = pieceMovement(
-            myBoard as Board,
-            source,
-            target,
+    const result = await applyMove(gid, playerName, uid || null, turn, pendingMove);
+    if (!result.ok) {
+        this.emit('error', [result.reason]);
+        return;
+    }
+
+    console.info(`Someone made a move, the turn is now ${result.turn}`);
+    await broadcastGameState(io, result.game, 'playerMadeMove');
+
+    if (result.winnerIndex !== -1) {
+        console.info('game ended from victory', result.gameStats);
+        io.sockets.in(gid).emit('endGame', {
+            winnerIndex: result.winnerIndex,
+            gameStats: result.gameStats,
+            finalGame: sanitizeGameForClient(result.game),
+        });
+        return;
+    }
+
+    if (result.game.config.opponentType === 'ai') {
+        scheduleAiTurn(gid, result.turn);
+    }
+}
+
+function scheduleAiTurn(gid: string, turn: number) {
+    // the AI always occupies the second seat
+    const aiPlayerIndex = 1;
+    if (turn % 2 !== aiPlayerIndex) {
+        return;
+    }
+    const delayMs = 400 + Math.random() * 500;
+    setTimeout(() => {
+        runAiTurn(gid, turn).catch((err) =>
+            console.error(`AI turn failed for game ${gid}:`, err),
         );
-        if (isEqual(newBoard, myBoard)) {
-            this.emit('error', ['No move made.']);
-        } else {
-            turn += 1;
-            await updateBoard(gid, newBoard);
-            // print the board
-            printBoard(newBoard);
-            const moveHistory = await getMoveHistory(gid);
-            const deadPieceHistory = await getDeadPieces(gid);
-            if (!moveHistory) {
-                console.error('Move history not found.');
-                this.emit('error', [`$Move history not found: ${gid}`]);
-                return;
-            }
-            await updateGame(gid, {
-                turn,
-                moves: [...moveHistory, pendingMove],
-                deadPieces: [...(deadPieceHistory || []), ...deadPieces],
-            });
-            myGame = await getGameById(gid);
+    }, delayMs);
+}
 
-            if (!myGame) {
-                console.error('Game not found.');
-                this.emit('error', [`$Game not found: ${gid}`]);
-                return;
-            }
+async function runAiTurn(gid: string, turn: number) {
+    const myGame = await getGameById(gid);
+    if (!myGame || !myGame.board) {
+        return;
+    }
+    const aiPlayerIndex = myGame.players.indexOf(AI_PLAYER_NAME);
+    if (aiPlayerIndex === -1) {
+        return;
+    }
 
-            console.info(`Someone made a move, the turn is now ${turn}`);
-            console.info(`Sending back gameState on ${gid}`);
-            myGame.playerToSocketIdMap.forEach(
-                (socketId: string, instPlayerName: string) => {
-                    console.info(
-                        `Sending board to ${instPlayerName} on socket: ${socketId}`,
-                    );
+    const fogged = myGame.config.fogOfWar
+        ? emplaceBoardFog(
+              myGame as unknown as { board: Piece[][]; deadPieces: Piece[] },
+              aiPlayerIndex,
+          )
+        : myGame;
+    const move = chooseAiMove(fogged.board as Board, aiPlayerIndex);
 
-                    if (!myGame) {
-                        console.error('Game not found.');
-                        this.emit('error', [`$Game not found: ${gid}`]);
-                        return;
-                    }
+    if (!move) {
+        // AI has no legal moves - treat it as a forfeit (a pre-existing gap
+        // in winner() means human-vs-human stalemates aren't handled either,
+        // this just makes the case reachable and resolves it the same way)
+        const winnerIndex = aiPlayerIndex === 0 ? 1 : 0;
+        const gameStats = await getGameStats(gid);
+        await updateGame(gid, {
+            winnerId:
+                myGame.playerToUidMap.get(myGame.players[winnerIndex]) ||
+                'anonymous',
+            phase: 3,
+        });
+        io.sockets.in(gid).emit('endGame', { winnerIndex, gameStats });
+        return;
+    }
 
-                    const playerIndex = myGame.players.indexOf(instPlayerName);
-                    console.info(`playerIndex: ${playerIndex}`);
+    const result = await applyMove(gid, AI_PLAYER_NAME, null, turn, {
+        source: move.source,
+        target: move.target,
+    });
+    if (!result.ok) {
+        console.error(`AI move could not be applied for game ${gid}:`, result.reason);
+        return;
+    }
 
-                    io.to(socketId).emit(
-                        'playerMadeMove',
-                        myGame.config.fogOfWar
-                            ? emplaceBoardFog(
-                                  myGame as unknown as {
-                                      board: Piece[][];
-                                      deadPieces: Piece[];
-                                  },
-                                  playerIndex,
-                              )
-                            : myGame,
-                    );
-                },
-            );
-
-            myGame.spectatorToSocketIdMap.forEach(
-                (socketId: string, instSpectatorName: string) => {
-                    console.info(
-                        `Sending board to ${instSpectatorName} on socket: ${socketId}`,
-                    );
-
-                    if (!myGame) {
-                        console.error('Game not found.');
-                        this.emit('error', [`$Game not found: ${gid}`]);
-                        return;
-                    }
-
-                    const spectatorIndex =
-                        myGame.spectators.indexOf(instSpectatorName);
-                    console.info(`spectatorIndex: ${spectatorIndex}`);
-
-                    io.to(socketId).emit('playerMadeMove', myGame);
-                },
-            );
-
-            const winnerIndex = await winner(gid);
-            const gameStats = await getGameStats(gid);
-            if (winnerIndex !== -1) {
-                console.info('game ended from victory', gameStats);
-                io.sockets.in(gid).emit('endGame', {
-                    winnerIndex,
-                    gameStats,
-                    finalGame: myGame,
-                });
-                await updateGame(gid, { winnerId: uid || 'anonymous' });
-            }
-        }
-    } else {
-        this.emit('error', ['It is not your turn.']);
+    await broadcastGameState(io, result.game, 'playerMadeMove');
+    if (result.winnerIndex !== -1) {
+        console.info('game ended from victory (AI)', result.gameStats);
+        io.sockets.in(gid).emit('endGame', {
+            winnerIndex: result.winnerIndex,
+            gameStats: result.gameStats,
+            finalGame: sanitizeGameForClient(result.game),
+        });
     }
 }
 
@@ -915,6 +748,7 @@ async function playerForfeit(
         winnerId:
             myGame.playerToUidMap.get(myGame.players[winnerIndex]) ||
             'anonymous',
+        phase: 3,
     });
 
     const gameStats = await getGameStats(gid);
