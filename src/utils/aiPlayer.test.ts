@@ -53,4 +53,42 @@ describe('chooseAiMove', () => {
             randomSpy.mockRestore();
         }
     });
+
+    test('honors custom weights - caution trades off against positional drive', () => {
+        const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+        try {
+            let board: Board = emptyBoard();
+            // our piece, free to advance to (6,2) or retreat to (5,1)
+            board = placePiece(board, 5, 2, createPiece('major', 1));
+            // immobile blockers so those are the only two candidate moves
+            board = placePiece(board, 4, 2, createPiece('landmine', 1));
+            board = placePiece(board, 5, 3, createPiece('landmine', 1));
+            // a visible-but-unidentified enemy piece that threatens (6,2)
+            // (its only reachable squares are its own orthogonal neighbors)
+            board = placePiece(board, 7, 2, createPiece('captain', 0));
+
+            const aggressive = chooseAiMove(board, 1, {
+                randomness: 0,
+                positionalDrive: 2,
+                caution: 0,
+                aggression: 0,
+            });
+            expect(aggressive).toEqual({ source: [5, 2], target: [6, 2] });
+
+            const cautious = chooseAiMove(board, 1, {
+                randomness: 0,
+                positionalDrive: 2,
+                caution: 1,
+                aggression: 0,
+            });
+            // row 5 is a railroad, so retreating along it to either (5,1) or
+            // (5,0) scores identically - either is an acceptable "avoided
+            // the threatened square" outcome, unlike the aggressive case
+            expect(cautious).not.toBeNull();
+            expect(cautious?.source).toEqual([5, 2]);
+            expect(cautious?.target).not.toEqual([6, 2]);
+        } finally {
+            randomSpy.mockRestore();
+        }
+    });
 });

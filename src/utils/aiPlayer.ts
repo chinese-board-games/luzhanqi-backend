@@ -1,15 +1,12 @@
 import { getSuccessors } from './getSuccessors';
 import { pieces, Piece } from './piece';
 import { Board } from './board';
+import { AiWeights, DEFAULT_AI_WEIGHTS } from './aiConstants';
 
 export type AiMove = { source: [number, number]; target: [number, number] };
 
-// tunable weights for the heuristic move scorer
-const ADVANCE_WEIGHT = 0.15;
-const EXPOSURE_WEIGHT = 0.5;
-const JITTER = 1.5;
+// fixed (non-tunable) constants for the heuristic move scorer
 const TOP_MARGIN = 1;
-const CAPTURE_BONUS = 1;
 const WIN_GAME_SCORE = 1000;
 
 // counts of remaining army pieces by rank, derived once from the static
@@ -35,7 +32,11 @@ const countInOrderRange = (minOrder: number, maxOrder: number): number => {
 
 // expected value of attacking a still-hidden 'enemy' square, based only on
 // the static prior over what the opponent's remaining army could be
-function estimateHiddenTargetScore(sourceName: string, sourceOrder: number): number {
+function estimateHiddenTargetScore(
+    sourceName: string,
+    sourceOrder: number,
+    aggression: number,
+): number {
     if (sourceName === 'bomb') {
         // a bomb always mutually destroys whatever it attacks, so this is a
         // guaranteed trade for a random enemy piece - modestly good odds
@@ -57,12 +58,12 @@ function estimateHiddenTargetScore(sourceName: string, sourceOrder: number): num
     const pDie = dieCount / total;
     // winning captures a piece somewhere below our own rank (rough estimate);
     // dying loses a piece worth our own rank; mutual trades are roughly neutral
-    return pWin * (sourceOrder * 0.6 + CAPTURE_BONUS) - pDie * sourceOrder;
+    return pWin * (sourceOrder * 0.6 + aggression) - pDie * sourceOrder;
 }
 
 // deterministic outcome of attacking a target whose identity is known
 // (fog off, or a revealed flag) - mirrors pieceMovement's combat rules
-function evaluateKnownTarget(source: Piece, target: Piece): number {
+function evaluateKnownTarget(source: Piece, target: Piece, aggression: number): number {
     if (
         source.name === 'bomb' ||
         source.name === target.name ||
@@ -75,7 +76,7 @@ function evaluateKnownTarget(source: Piece, target: Piece): number {
         source.order > target.order ||
         (source.name === 'engineer' && target.name === 'landmine')
     ) {
-        return target.name === 'flag' ? WIN_GAME_SCORE : target.order + CAPTURE_BONUS;
+        return target.name === 'flag' ? WIN_GAME_SCORE : target.order + aggression;
     }
     return -source.order; // source loses
 }
@@ -99,9 +100,17 @@ function computeThreatenedSquares(board: Board, aiPlayerIndex: number): Set<stri
  * Picks a move for the AI opponent using simple heuristics, respecting fog
  * of war - it only ever sees `fogBoard`, the same view emplaceBoardFog
  * would send a real player, never the true identity of enemy pieces.
+ *
+ * `weights` lets a game tune how the AI plays (see aiConstants.ts for the
+ * meaning of each setting and their defaults).
  * @see chooseAiMove
  */
-export function chooseAiMove(fogBoard: Board, aiPlayerIndex: number): AiMove | null {
+export function chooseAiMove(
+    fogBoard: Board,
+    aiPlayerIndex: number,
+    weights: AiWeights = DEFAULT_AI_WEIGHTS,
+): AiMove | null {
+    const { randomness, positionalDrive, caution, aggression } = weights;
     const enemyHQRow = aiPlayerIndex === 0 ? 0 : 11;
     const threatenedSquares = computeThreatenedSquares(fogBoard, aiPlayerIndex);
 
@@ -117,16 +126,16 @@ export function chooseAiMove(fogBoard: Board, aiPlayerIndex: number): AiMove | n
                 const target = fogBoard[tr][tc];
                 let score: number;
                 if (target === null) {
-                    score = ADVANCE_WEIGHT * -Math.abs(tr - enemyHQRow);
+                    score = positionalDrive * -Math.abs(tr - enemyHQRow);
                     if (threatenedSquares.has(`${tr},${tc}`)) {
-                        score -= piece.order * EXPOSURE_WEIGHT;
+                        score -= piece.order * caution;
                     }
                 } else if (target.name === 'enemy') {
-                    score = estimateHiddenTargetScore(piece.name, piece.order);
+                    score = estimateHiddenTargetScore(piece.name, piece.order, aggression);
                 } else {
-                    score = evaluateKnownTarget(piece, target);
+                    score = evaluateKnownTarget(piece, target, aggression);
                 }
-                score += (Math.random() - 0.5) * JITTER;
+                score += (Math.random() - 0.5) * randomness;
                 candidates.push({ move: { source: [r, c], target: [tr, tc] }, score });
             });
         }
