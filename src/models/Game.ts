@@ -1,14 +1,16 @@
 import { Schema, model, Types, Model } from 'mongoose';
+import { AiWeights } from '../utils/aiConstants';
 
 interface IGameConfig extends Document {
     _id: Types.ObjectId;
     fogOfWar: boolean;
     opponentType: 'human' | 'ai';
+    aiSettings?: AiWeights;
 }
 
 export type GameConfigData = Pick<
     IGameConfig,
-    'fogOfWar' | 'opponentType'
+    'fogOfWar' | 'opponentType' | 'aiSettings'
 >;
 
 export interface IGame extends Document {
@@ -75,6 +77,18 @@ const GameSchema = new Schema<IGame, GameModelType>(
         config: new Schema<IGameConfig>({
             fogOfWar: Boolean,
             opponentType: { type: String, default: 'human' },
+            aiSettings: {
+                type: new Schema(
+                    {
+                        randomness: Number,
+                        positionalDrive: Number,
+                        caution: Number,
+                        aggression: Number,
+                    },
+                    { _id: false },
+                ),
+                required: false,
+            },
         }),
     },
     { timestamps: true },

@@ -25,7 +25,7 @@ import {
 } from './services/gameplayService';
 import { getSuccessors, emplaceBoardFog } from './utils';
 import { chooseAiMove } from './utils/aiPlayer';
-import { AI_PLAYER_NAME } from './utils/aiConstants';
+import { AI_PLAYER_NAME, DEFAULT_AI_WEIGHTS } from './utils/aiConstants';
 import { Board, Piece } from './types';
 
 let io: Server;
@@ -718,7 +718,11 @@ async function runAiTurn(gid: string, turn: number) {
               aiPlayerIndex,
           )
         : myGame;
-    const move = chooseAiMove(fogged.board as Board, aiPlayerIndex);
+    const move = chooseAiMove(
+        fogged.board as Board,
+        aiPlayerIndex,
+        myGame.config.aiSettings || DEFAULT_AI_WEIGHTS,
+    );
 
     if (!move) {
         // AI has no legal moves - treat it as a forfeit (a pre-existing gap

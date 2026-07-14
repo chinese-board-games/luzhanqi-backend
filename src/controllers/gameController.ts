@@ -1,6 +1,10 @@
 import crypto from 'crypto';
 import Game, { GameConfigData } from '../models/Game';
-import { AI_PLAYER_NAME, AI_SOCKET_SENTINEL } from '../utils/aiConstants';
+import {
+    AI_PLAYER_NAME,
+    AI_SOCKET_SENTINEL,
+    DEFAULT_AI_WEIGHTS,
+} from '../utils/aiConstants';
 
 /**
  * generates an opaque random token used to prove ownership of a player's
@@ -56,6 +60,7 @@ export const createGame = async ({
         fogOfWar: true,
         opponentType: 'human',
         ...gameConfig,
+        aiSettings: { ...DEFAULT_AI_WEIGHTS, ...gameConfig?.aiSettings },
     };
     const game = new Game({
         players: [host],
