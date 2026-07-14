@@ -81,6 +81,16 @@ export const archiveGame = async (uid: string, gameId: string) => {
     console.error('User not found');
 };
 
+export const unarchiveGame = async (uid: string, gameId: string) => {
+    const myUser = await getUser(uid);
+    if (myUser) {
+        myUser.archivedGames = myUser.archivedGames.filter((game) => game !== gameId);
+        await myUser.save();
+        return myUser;
+    }
+    console.error('User not found');
+};
+
 export const getGames = async (uid: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
