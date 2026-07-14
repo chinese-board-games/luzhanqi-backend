@@ -1,4 +1,35 @@
+import crypto from 'crypto';
 import Game, { GameConfigData } from '../models/Game';
+import { AI_PLAYER_NAME, AI_SOCKET_SENTINEL } from '../utils/aiConstants';
+
+/**
+ * generates an opaque random token used to prove ownership of a player's
+ * seat when reconnecting to a game (see addClient/playerRejoinRoom)
+ * @see generateToken
+ */
+export const generateToken = (): string => crypto.randomBytes(16).toString('hex');
+
+/**
+ * strips server-internal identity maps (socket ids, uids, reconnection
+ * tokens) from a game object before it is sent to any client. Accepts
+ * either a Mongoose document or a plain object (e.g. the fogged clone
+ * produced by emplaceBoardFog).
+ * @see sanitizeGameForClient
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const sanitizeGameForClient = (game: any) => {
+    const plainGame =
+        typeof game?.toObject === 'function' ? game.toObject() : game;
+    const {
+        playerToTokenMap: _playerToTokenMap,
+        playerToUidMap: _playerToUidMap,
+        playerToSocketIdMap: _playerToSocketIdMap,
+        spectatorToUidMap: _spectatorToUidMap,
+        spectatorToSocketIdMap: _spectatorToSocketIdMap,
+        ...safeFields
+    } = plainGame;
+    return safeFields;
+};
 
 /**
  * creates a Game in the database and returns
@@ -11,25 +42,35 @@ export const createGame = async ({
     host,
     playerToUidMap,
     playerToSocketIdMap,
-    gameConfig = { fogOfWar: true },
+    gameConfig,
 }: {
     host: string;
     playerToUidMap: Map<string, string | null>;
     playerToSocketIdMap: Map<string, string>;
-    gameConfig: GameConfigData;
+    gameConfig?: Partial<GameConfigData>;
 }) => {
+    // merge onto defaults rather than relying on a parameter default, since a
+    // caller-provided object missing one key (e.g. { opponentType: 'ai' }
+    // with no fogOfWar) would otherwise silently leave that key undefined
+    const resolvedConfig: GameConfigData = {
+        fogOfWar: true,
+        opponentType: 'human',
+        ...gameConfig,
+    };
     const game = new Game({
         players: [host],
         playerToUidMap,
         playerToSocketIdMap,
+        playerToTokenMap: new Map([[host, generateToken()]]),
         spectators: [],
         spectatorToUidMap: new Map(),
         spectatorToSocketIdMap: new Map(),
         moves: [],
         turn: 0,
+        phase: 0,
         board: null,
         winnerId: null,
-        config: gameConfig,
+        config: resolvedConfig,
     });
 
     const savedGame = await game.save();
@@ -39,6 +80,31 @@ export const createGame = async ({
     } else {
         console.error('Game not saved');
     }
+};
+
+/**
+ * fills the second seat with the AI opponent (no real socket) and moves
+ * the game straight to the placement phase
+ * @see addAiPlayer
+ */
+export const addAiPlayer = async (gid: string) => {
+    const myGame = await getGameById(gid);
+    if (!myGame) {
+        console.error('Game not found');
+        return;
+    }
+    const { players, playerToUidMap, playerToSocketIdMap } = myGame;
+    players.push(AI_PLAYER_NAME);
+    playerToUidMap.set(AI_PLAYER_NAME, null);
+    playerToSocketIdMap.set(AI_PLAYER_NAME, AI_SOCKET_SENTINEL);
+
+    await updateGame(gid, {
+        players,
+        playerToUidMap,
+        playerToSocketIdMap,
+        phase: 1,
+    });
+    return getGameById(gid);
 };
 
 export const getGameById = async (gid: string) => {
@@ -102,12 +168,19 @@ export const addClient = async ({
     const myGame = await getGameById(gid);
     if (myGame) {
         // assume only one result, take first one
-        const { players, playerToUidMap, playerToSocketIdMap } = myGame;
+        const { players, playerToUidMap, playerToSocketIdMap, playerToTokenMap } =
+            myGame;
         players.push(playerName);
         playerToUidMap.set(playerName, clientId);
         playerToSocketIdMap.set(playerName, mySocketId);
+        playerToTokenMap.set(playerName, generateToken());
 
-        await updateGame(gid, { players, playerToUidMap, playerToSocketIdMap });
+        await updateGame(gid, {
+            players,
+            playerToUidMap,
+            playerToSocketIdMap,
+            playerToTokenMap,
+        });
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;
@@ -140,12 +213,19 @@ export const removePlayer = async ({
     const myGame = await getGameById(gid);
     if (myGame) {
         // assume only one result, take first one
-        const { playerToUidMap, playerToSocketIdMap } = myGame;
+        const { playerToUidMap, playerToSocketIdMap, playerToTokenMap } = myGame;
         const players = [myGame.players[0]]; // only the host should remain
         playerToUidMap.delete(playerName);
         playerToSocketIdMap.delete(playerName);
+        // a deliberately-vacated seat's old reconnection token must stop working
+        playerToTokenMap.delete(playerName);
 
-        await updateGame(gid, { players, playerToUidMap, playerToSocketIdMap });
+        await updateGame(gid, {
+            players,
+            playerToUidMap,
+            playerToSocketIdMap,
+            playerToTokenMap,
+        });
         const myUpdatedGame = await getGameById(gid);
         console.info(`Updated game: ${myUpdatedGame}`);
         return myUpdatedGame;

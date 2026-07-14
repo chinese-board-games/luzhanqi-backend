@@ -3,7 +3,10 @@
 
 import { Router } from 'express';
 // import functions from the controller
-import { getGameById } from '../../controllers/gameController';
+import {
+    getGameById,
+    sanitizeGameForClient,
+} from '../../controllers/gameController';
 
 const games = Router();
 
@@ -12,20 +15,20 @@ const games = Router();
 games.get('/:gameId', async (req, res) => {
     const myGame = await getGameById(req.params.gameId);
     if (myGame) {
-        res.status(200).send(myGame);
+        res.status(200).send(sanitizeGameForClient(myGame));
     } else {
         res.status(404).send('Game not found');
     }
 });
 
 // updates a Game's playerToUidMap with a playerName -> Firebase uid
-games.post('/:gameId/:playerName/:uid', async (req, res) => { 
+games.post('/:gameId/:playerName/:uid', async (req, res) => {
     const { gameId, playerName, uid } = req.params;
     const myGame = await getGameById(gameId);
     if (myGame) {
         myGame.playerToUidMap.set(playerName, uid);
         myGame.save();
-        res.status(200).send(myGame);
+        res.status(200).send(sanitizeGameForClient(myGame));
     } else {
         res.status(404).send('Game not found');
     }
