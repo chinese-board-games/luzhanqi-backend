@@ -15,7 +15,7 @@ import {
     deleteGame,
     winner,
 } from './controllers/gameController';
-import { addGame, removeGame } from './controllers/userController';
+import { addGame, removeGame, getGames } from './controllers/userController';
 import {
     applyMove,
     submitInitialBoard,
@@ -48,6 +48,7 @@ export const initGame = (sio: Server, socket: Socket) => {
     // Player Events
     gameSocket.on('playerJoinRoom', playerJoinRoom);
     gameSocket.on('playerRejoinRoom', playerRejoinRoom);
+    gameSocket.on('getMyActiveGames', getMyActiveGames);
     gameSocket.on('playerLeaveRoom', playerLeaveRoom);
     gameSocket.on('playerRestart', playerRestart);
     gameSocket.on('playerMakeMove', playerMakeMove);
@@ -246,10 +247,16 @@ async function playerRejoinRoom(
         gameId,
         playerName,
         token,
-    }: { gameId: string; playerName: string; token: string },
+        uid,
+    }: {
+        gameId: string;
+        playerName?: string;
+        token?: string;
+        uid?: string | null;
+    },
 ) {
     console.info(
-        `Player ${playerName} attempting to rejoin room: ${gameId} on socket id: ${this.id}`,
+        `Player ${playerName || '(unknown)'} attempting to rejoin room: ${gameId} on socket id: ${this.id}`,
     );
 
     const myGame = await getGameById(gameId);
@@ -257,13 +264,29 @@ async function playerRejoinRoom(
         this.emit('rejoinFailed', { gameId, reason: 'game-not-found' });
         return;
     }
+
+    // proof of seat ownership is either the token issued to this device at
+    // join time, or - for a device that's never seen this game before -
+    // a logged-in uid matching the one recorded for a seat when it joined
+    let resolvedPlayerName: string | undefined;
     if (
-        !myGame.players.includes(playerName) ||
-        myGame.playerToTokenMap.get(playerName) !== token
+        playerName &&
+        token &&
+        myGame.players.includes(playerName) &&
+        myGame.playerToTokenMap.get(playerName) === token
     ) {
+        resolvedPlayerName = playerName;
+    } else if (uid) {
+        resolvedPlayerName = myGame.players.find(
+            (p) => myGame.playerToUidMap.get(p) === uid,
+        );
+    }
+
+    if (!resolvedPlayerName) {
         this.emit('rejoinFailed', { gameId, reason: 'invalid-session' });
         return;
     }
+    playerName = resolvedPlayerName;
 
     myGame.playerToSocketIdMap.set(playerName, this.id);
     await updateGame(gameId, {
@@ -297,6 +320,9 @@ async function playerRejoinRoom(
     this.emit('youHaveRejoinedTheRoom', {
         gameId,
         playerName,
+        // always included (not just for the uid-fallback path) so a device
+        // that rejoined via uid alone caches this seat's token for next time
+        token: myGame.playerToTokenMap.get(playerName),
         players: myGame.players,
         spectators: myGame.spectators,
         phase: myGame.phase,
@@ -309,6 +335,63 @@ async function playerRejoinRoom(
         gameStats,
     });
     io.sockets.in(gameId).emit('playerReconnected', { playerName });
+}
+
+type ActiveGameSummary = {
+    gameId: string;
+    yourPlayerName: string;
+    opponentName: string | null;
+    isAiGame: boolean;
+};
+
+/**
+ * Lets a logged-in user discover in-progress games tied to their account
+ * (e.g. from a different device that has no localStorage session for
+ * them) that are actually worth rejoining: still ongoing, and either
+ * against the AI (always available) or an opponent who's currently
+ * connected somewhere.
+ */
+async function getMyActiveGames(this: Socket, { uid }: { uid: string | null }) {
+    if (!uid) {
+        this.emit('myActiveGames', []);
+        return;
+    }
+
+    const gameIds = (await getGames(uid)) || [];
+    const summaries: ActiveGameSummary[] = [];
+
+    for (const gid of gameIds) {
+        // eslint-disable-next-line no-await-in-loop
+        const myGame = await getGameById(gid);
+        if (!myGame || myGame.phase === 3) {
+            continue;
+        }
+        const yourPlayerName = myGame.players.find(
+            (p) => myGame.playerToUidMap.get(p) === uid,
+        );
+        if (!yourPlayerName) {
+            continue;
+        }
+        const yourIndex = myGame.players.indexOf(yourPlayerName);
+        const opponentName = myGame.players[1 - yourIndex] ?? null;
+        const isAiGame = myGame.config.opponentType === 'ai';
+        const opponentSocketId = opponentName
+            ? myGame.playerToSocketIdMap.get(opponentName)
+            : undefined;
+        const opponentSeat = opponentSocketId
+            ? socketSeatRegistry.get(opponentSocketId)
+            : undefined;
+        const opponentConnected =
+            !!opponentSeat &&
+            opponentSeat.gid === gid &&
+            opponentSeat.playerName === opponentName;
+
+        if (isAiGame || opponentConnected) {
+            summaries.push({ gameId: gid, yourPlayerName, opponentName, isAiGame });
+        }
+    }
+
+    this.emit('myActiveGames', summaries);
 }
 
 async function playerDisconnect(this: Socket) {
