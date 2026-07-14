@@ -15,7 +15,7 @@ import {
     deleteGame,
     winner,
 } from './controllers/gameController';
-import { addGame, removeGame, getGames } from './controllers/userController';
+import { addGame, removeGame, getUser } from './controllers/userController';
 import {
     applyMove,
     submitInitialBoard,
@@ -345,11 +345,12 @@ type ActiveGameSummary = {
 };
 
 /**
- * Lets a logged-in user discover in-progress games tied to their account
- * (e.g. from a different device that has no localStorage session for
- * them) that are actually worth rejoining: still ongoing, and either
- * against the AI (always available) or an opponent who's currently
- * connected somewhere.
+ * Lets a logged-in user discover an in-progress game tied to their account
+ * worth rejoining (e.g. from a different device that has no localStorage
+ * session for them). A game is durable in Mongo regardless of who's
+ * currently connected, so "worth rejoining" is purely: not ended, and not
+ * dismissed via archiveGame. Only the single most recently updated such
+ * game is returned - older ones are still visible in full game history.
  */
 async function getMyActiveGames(this: Socket, { uid }: { uid: string | null }) {
     if (!uid) {
@@ -357,10 +358,15 @@ async function getMyActiveGames(this: Socket, { uid }: { uid: string | null }) {
         return;
     }
 
-    const gameIds = (await getGames(uid)) || [];
-    const summaries: ActiveGameSummary[] = [];
+    const myUser = await getUser(uid);
+    const gameIds = myUser?.games || [];
+    const archivedGameIds = new Set(myUser?.archivedGames || []);
+    let mostRecent: (ActiveGameSummary & { updatedAt: Date }) | null = null;
 
     for (const gid of gameIds) {
+        if (archivedGameIds.has(gid)) {
+            continue;
+        }
         // eslint-disable-next-line no-await-in-loop
         const myGame = await getGameById(gid);
         if (!myGame || myGame.phase === 3) {
@@ -375,23 +381,14 @@ async function getMyActiveGames(this: Socket, { uid }: { uid: string | null }) {
         const yourIndex = myGame.players.indexOf(yourPlayerName);
         const opponentName = myGame.players[1 - yourIndex] ?? null;
         const isAiGame = myGame.config.opponentType === 'ai';
-        const opponentSocketId = opponentName
-            ? myGame.playerToSocketIdMap.get(opponentName)
-            : undefined;
-        const opponentSeat = opponentSocketId
-            ? socketSeatRegistry.get(opponentSocketId)
-            : undefined;
-        const opponentConnected =
-            !!opponentSeat &&
-            opponentSeat.gid === gid &&
-            opponentSeat.playerName === opponentName;
+        const updatedAt = (myGame as unknown as { updatedAt: Date }).updatedAt;
 
-        if (isAiGame || opponentConnected) {
-            summaries.push({ gameId: gid, yourPlayerName, opponentName, isAiGame });
+        if (!mostRecent || updatedAt > mostRecent.updatedAt) {
+            mostRecent = { gameId: gid, yourPlayerName, opponentName, isAiGame, updatedAt };
         }
     }
 
-    this.emit('myActiveGames', summaries);
+    this.emit('myActiveGames', mostRecent ? [mostRecent] : []);
 }
 
 async function playerDisconnect(this: Socket) {

@@ -67,6 +67,20 @@ export const removeGame = async (uid: string, gameId: string) => {
     console.error('User not found');
 };
 
+// dismisses a game from a user's "rejoin" prompt without touching their
+// games list - it still appears in their full game history
+export const archiveGame = async (uid: string, gameId: string) => {
+    const myUser = await getUser(uid);
+    if (myUser) {
+        if (!myUser.archivedGames.includes(gameId)) {
+            myUser.archivedGames.push(gameId);
+            await myUser.save();
+        }
+        return myUser;
+    }
+    console.error('User not found');
+};
+
 export const getGames = async (uid: string) => {
     const myUser = await getUser(uid);
     if (myUser) {

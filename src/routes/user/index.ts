@@ -8,6 +8,7 @@ import {
     getUser,
     addGame,
     removeGame,
+    archiveGame,
     getGames,
     getRank,
     setRank,
@@ -50,6 +51,14 @@ user.post('/:userId/games/:gameId', async (req, res) => {
 });
 user.delete('/:userId/games/:gameId', (req, res) => {
     removeGame(req.params.userId, req.params.gameId);
+});
+user.post('/:userId/games/:gameId/archive', async (req, res) => {
+    const myUser = await archiveGame(req.params.userId, req.params.gameId);
+    if (myUser) {
+        res.status(200).send(myUser);
+    } else {
+        res.status(404).send('User not found');
+    }
 });
 user.get('/:userId/games', getGames);
 user.get('/:userId/rank', getRank);
