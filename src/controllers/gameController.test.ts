@@ -1,4 +1,8 @@
-import { sanitizeGameForClient, generateToken } from './gameController';
+import {
+    sanitizeGameForClient,
+    generateToken,
+    generateJoinCode,
+} from './gameController';
 
 describe('generateToken', () => {
     test('produces a non-empty, non-guessable, unique string each call', () => {
@@ -7,6 +11,21 @@ describe('generateToken', () => {
         expect(a).toEqual(expect.any(String));
         expect(a.length).toBeGreaterThanOrEqual(16);
         expect(a).not.toEqual(b);
+    });
+});
+
+describe('generateJoinCode', () => {
+    test('produces a 6-character code using only unambiguous characters', () => {
+        const code = generateJoinCode();
+        expect(code).toHaveLength(6);
+        expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+        // visually-confusable characters must never appear
+        expect(code).not.toMatch(/[0O1IL]/);
+    });
+
+    test('is not deterministic', () => {
+        const codes = new Set(Array.from({ length: 20 }, () => generateJoinCode()));
+        expect(codes.size).toBeGreaterThan(1);
     });
 });
 

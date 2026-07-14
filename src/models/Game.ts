@@ -15,6 +15,9 @@ export type GameConfigData = Pick<
 
 export interface IGame extends Document {
     room: string;
+    // short human-shareable code (e.g. "7K4X2P") resolving to this game's
+    // real _id, so players don't have to read/type/paste a 24-char ObjectId
+    joinCode: string;
     players: Array<string>;
     playerToSocketIdMap: Map<string, string>;
     playerToUidMap: Map<string, string | null>;
@@ -60,6 +63,7 @@ type GameModelType = Model<IGame, {}, GameDocumentOverrides>;
 const GameSchema = new Schema<IGame, GameModelType>(
     {
         room: String,
+        joinCode: { type: String, unique: true, sparse: true },
         players: [],
         playerToUidMap: Map,
         playerToSocketIdMap: Map,
