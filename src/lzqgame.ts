@@ -303,6 +303,7 @@ async function playerRejoinRoom(
         turn: myGame.turn,
         board,
         deadPieces,
+        moves: myGame.moves,
         submittedSide: myGame.playersSubmittedSetup?.includes(playerName) ?? false,
         winnerIndex,
         gameStats,

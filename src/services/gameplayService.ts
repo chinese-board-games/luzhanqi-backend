@@ -70,8 +70,10 @@ export function pieceMovement(board: Board, source: Coord, target: Coord) {
         (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
     ) {
         // place source piece on target tile, remove source piece from source tile
-        if (sourcePiece) {
-            deadPieces.push(sourcePiece);
+        if (targetPiece) {
+            // a piece was actually captured here - the source piece survives
+            // and occupies the target tile, so it must not be marked dead
+            deadPieces.push(targetPiece);
         }
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
