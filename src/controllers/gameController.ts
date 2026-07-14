@@ -13,6 +13,53 @@ import {
  */
 export const generateToken = (): string => crypto.randomBytes(16).toString('hex');
 
+// excludes visually-ambiguous characters (0/O, 1/I/L) so codes are easy to
+// read aloud or retype correctly
+const JOIN_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const JOIN_CODE_LENGTH = 6;
+const OBJECT_ID_RE = /^[a-f\d]{24}$/i;
+
+/**
+ * generates a short, human-shareable code (e.g. "7K4X2P") for inviting
+ * others to a game, without the collision check `createGame` applies
+ * @see generateJoinCode
+ */
+export const generateJoinCode = (): string => {
+    let code = '';
+    for (let i = 0; i < JOIN_CODE_LENGTH; i++) {
+        code += JOIN_CODE_ALPHABET[crypto.randomInt(JOIN_CODE_ALPHABET.length)];
+    }
+    return code;
+};
+
+/**
+ * generates a join code guaranteed not to collide with an existing game's
+ * @see generateJoinCode
+ */
+const generateUniqueJoinCode = async (): Promise<string> => {
+    let code = generateJoinCode();
+    while (await Game.exists({ joinCode: code })) {
+        code = generateJoinCode();
+    }
+    return code;
+};
+
+/**
+ * resolves either a real game ObjectId or a short join code to the game's
+ * ObjectId string, so callers (join/spectate) can accept either. Returns
+ * null if a join code doesn't match any game.
+ * @see resolveGameId
+ */
+export const resolveGameId = async (
+    idOrCode: string,
+): Promise<string | null> => {
+    if (OBJECT_ID_RE.test(idOrCode)) {
+        return idOrCode;
+    }
+    const game = await Game.findOne({ joinCode: idOrCode.toUpperCase() });
+    return game ? game._id.toString() : null;
+};
+
 /**
  * strips server-internal identity maps (socket ids, uids, reconnection
  * tokens) from a game object before it is sent to any client. Accepts
@@ -62,7 +109,9 @@ export const createGame = async ({
         ...gameConfig,
         aiSettings: { ...DEFAULT_AI_WEIGHTS, ...gameConfig?.aiSettings },
     };
+    const joinCode = await generateUniqueJoinCode();
     const game = new Game({
+        joinCode,
         players: [host],
         playerToUidMap,
         playerToSocketIdMap,

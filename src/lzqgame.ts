@@ -14,6 +14,7 @@ import {
     addAiPlayer,
     deleteGame,
     winner,
+    resolveGameId,
 } from './controllers/gameController';
 import { addGame, removeGame, getUser } from './controllers/userController';
 import {
@@ -112,6 +113,7 @@ async function hostCreateNewGame(
 
         this.emit('newGameCreated', {
             gameId: string_gid,
+            joinCode: finalGame.joinCode,
             mySocketId: this.id,
             players: finalGame.players,
             phase: finalGame.phase,
@@ -172,10 +174,20 @@ async function playerJoinRoom(
         `Player ${data.playerName} attempting to join room: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
 
+    // data.joinRoomId may be either a real game ObjectId or a short join code
+    const resolvedGid = await resolveGameId(data.joinRoomId);
+    if (!resolvedGid) {
+        this.emit('error', [
+            'This game does not exist. Please enter a valid room code.',
+        ]);
+        return;
+    }
+    data.joinRoomId = resolvedGid;
+
     const existingPlayers = await getPlayers(data.joinRoomId);
     if (!existingPlayers) {
         this.emit('error', [
-            'This game does not exist. Please enter a valid room ID.',
+            'This game does not exist. Please enter a valid room code.',
         ]);
     } else if (existingPlayers.length == 2) {
         this.emit('error', ['There are already two players in this game.']);
@@ -223,6 +235,7 @@ async function playerJoinRoom(
             });
             this.emit('youHaveJoinedTheRoom', {
                 ...data,
+                joinCode: myUpdatedGame.joinCode,
                 token: myUpdatedGame.playerToTokenMap.get(data.playerName),
                 phase: myUpdatedGame.phase,
             });
@@ -531,11 +544,21 @@ async function spectateRoom(
         `Spectator ${data.spectatorName} attempting to join room: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
 
+    // data.joinRoomId may be either a real game ObjectId or a short join code
+    const resolvedGid = await resolveGameId(data.joinRoomId);
+    if (!resolvedGid) {
+        this.emit('error', [
+            'This game does not exist. Please enter a valid room code.',
+        ]);
+        return;
+    }
+    data.joinRoomId = resolvedGid;
+
     const existingGame = await getGameById(data.joinRoomId);
 
     if (!existingGame?.players) {
         this.emit('error', [
-            'This game does not exist. Please enter a valid room ID.',
+            'This game does not exist. Please enter a valid room code.',
         ]);
     } else if (existingGame.moves.length) {
         this.emit('error', [
@@ -583,7 +606,10 @@ async function spectateRoom(
             }
             data.spectators = spectators;
             data.players = existingGame.players;
-            this.emit('youAreSpectatingTheRoom');
+            this.emit('youAreSpectatingTheRoom', {
+                gameId: data.joinRoomId,
+                joinCode: myUpdatedGame.joinCode,
+            });
             io.sockets.in(data.joinRoomId).emit('spectatorJoinedRoom', data);
         } else {
             console.error('Could not spectate given game');
