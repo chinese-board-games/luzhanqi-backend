@@ -311,12 +311,22 @@ async function playerRejoinRoom(
     io.sockets.in(gameId).emit('playerReconnected', { playerName });
 }
 
-function playerDisconnect(this: Socket) {
+async function playerDisconnect(this: Socket) {
     const seat = socketSeatRegistry.get(this.id);
     if (!seat) {
         return;
     }
     socketSeatRegistry.delete(this.id);
+
+    // On a page reload, the old socket doesn't always close immediately -
+    // socket.io can take up to the ping-timeout window to notice, so this
+    // disconnect can fire *after* the same player has already reconnected
+    // on a new socket. If a newer socket has since taken over this seat,
+    // this is that stale echo, not a real disconnect - don't announce it.
+    const myGame = await getGameById(seat.gid);
+    if (myGame && myGame.playerToSocketIdMap.get(seat.playerName) !== this.id) {
+        return;
+    }
     io.sockets.in(seat.gid).emit('playerDisconnected', {
         playerName: seat.playerName,
     });
