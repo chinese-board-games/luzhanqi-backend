@@ -153,6 +153,7 @@ export type MoveResult =
           deadPieces: Piece[];
           winnerIndex: number;
           gameStats: GameStats | null;
+          fieldMarshallDown: { playerName: string; affiliation: number }[];
       }
     | { ok: false; reason: string };
 
@@ -213,10 +214,18 @@ export async function applyMove(
         await updateGame(gid, { winnerId: uid || 'anonymous', phase: 3 });
     }
 
+    const fieldMarshallDown = deadPieces
+        .filter((piece) => piece.name === 'field_marshall')
+        .map((piece) => ({
+            playerName: updatedGame.players[piece.affiliation],
+            affiliation: piece.affiliation,
+        }));
+
     return {
         ok: true,
         game: updatedGame,
         turn: newTurn,
+        fieldMarshallDown,
         deadPieces,
         winnerIndex,
         gameStats,
