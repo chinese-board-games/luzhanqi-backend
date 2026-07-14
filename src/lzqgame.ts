@@ -658,6 +658,7 @@ async function playerMakeMove(
 
     console.info(`Someone made a move, the turn is now ${result.turn}`);
     await broadcastGameState(io, result.game, 'playerMadeMove');
+    broadcastFieldMarshallDown(gid, result.fieldMarshallDown);
 
     if (result.winnerIndex !== -1) {
         console.info('game ended from victory', result.gameStats);
@@ -671,6 +672,19 @@ async function playerMakeMove(
 
     if (result.game.config.opponentType === 'ai') {
         scheduleAiTurn(gid, result.turn);
+    }
+}
+
+// announces to the whole room (players + spectators) that one or both
+// field marshals died on the move that just resolved - relevant to both
+// sides since the opponent's flag becomes revealed once their field
+// marshal falls (see emplaceBoardFog)
+function broadcastFieldMarshallDown(
+    gid: string,
+    fieldMarshallDown: { playerName: string; affiliation: number }[],
+) {
+    if (fieldMarshallDown.length) {
+        io.sockets.in(gid).emit('fieldMarshallDown', fieldMarshallDown);
     }
 }
 
@@ -732,6 +746,7 @@ async function runAiTurn(gid: string, turn: number) {
     }
 
     await broadcastGameState(io, result.game, 'playerMadeMove');
+    broadcastFieldMarshallDown(gid, result.fieldMarshallDown);
     if (result.winnerIndex !== -1) {
         console.info('game ended from victory (AI)', result.gameStats);
         io.sockets.in(gid).emit('endGame', {
