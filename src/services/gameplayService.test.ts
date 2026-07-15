@@ -129,8 +129,8 @@ describe('pieceMovement', () => {
 
             expect(deadPieces.some((p) => p.carryingFlag)).toBe(true);
             // carrier was affiliation 0, so the respawned flag belongs to
-            // affiliation 1 (whoever originally owned it) at its home HQ (row 11)
-            expect(newBoard[11][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+            // affiliation 1 (whoever originally owned it) at its home HQ (row 0)
+            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
         });
 
         test('if the carrier loses a fight, the flag respawns at its home HQ', () => {
@@ -147,7 +147,7 @@ describe('pieceMovement', () => {
             expect(deadPieces).toEqual([
                 expect.objectContaining({ name: 'captain', affiliation: 0, carryingFlag: true }),
             ]);
-            expect(newBoard[11][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
         });
 
         test('without captureTheFlag, a captured flag simply disappears (default behavior unchanged)', () => {

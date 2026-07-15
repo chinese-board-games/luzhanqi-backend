@@ -480,7 +480,10 @@ export function winnerUnderCaptureTheFlag(myBoard: any): number {
             if (piece.name === 'flag') {
                 flagsPresent[piece.affiliation] = true;
             }
-            const homeHQRow = piece.affiliation === 0 ? 0 : 11;
+            // host (affiliation 0) occupies the bottom half of the merged
+            // board (HQ at row 11); the guest (affiliation 1) occupies the
+            // top half (HQ at row 0) - see submitInitialBoard's merge order
+            const homeHQRow = piece.affiliation === 0 ? 11 : 0;
             if (piece.carryingFlag && rowI === homeHQRow) {
                 // carrier reached its own HQ with the enemy flag
                 winnerIndex = piece.affiliation;

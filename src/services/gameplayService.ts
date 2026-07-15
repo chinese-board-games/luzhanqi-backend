@@ -33,7 +33,10 @@ export type PieceMovementConfig = {
 };
 
 const HQ_COLS = [1, 3];
-const homeHQRow = (affiliation: number) => (affiliation === 0 ? 0 : 11);
+// host (affiliation 0) occupies the bottom half of the merged 12-row board
+// (HQ at row 11); the guest (affiliation 1) occupies the top half (HQ at
+// row 0) - see submitInitialBoard's merge order in this same file
+const homeHQRow = (affiliation: number) => (affiliation === 0 ? 11 : 0);
 
 // finds an empty home-HQ cell for the given affiliation, preferring col 1
 // then col 3 - used to respawn a dropped flag under captureTheFlag
