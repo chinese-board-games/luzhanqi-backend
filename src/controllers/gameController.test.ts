@@ -2,7 +2,10 @@ import {
     sanitizeGameForClient,
     generateToken,
     generateJoinCode,
+    winnerUnderCaptureTheFlag,
 } from './gameController';
+import { emptyBoard } from '../utils/board';
+import { createPiece, placePiece } from '../utils/piece';
 
 describe('generateToken', () => {
     test('produces a non-empty, non-guessable, unique string each call', () => {
@@ -66,5 +69,66 @@ describe('sanitizeGameForClient', () => {
     test('never leaks a reconnection token under any key', () => {
         const sanitized = sanitizeGameForClient(rawGame);
         expect(JSON.stringify(sanitized)).not.toContain('super-secret-token');
+    });
+});
+
+describe('winnerUnderCaptureTheFlag', () => {
+    test('no winner while both flags are present and untouched', () => {
+        let board = emptyBoard();
+        board = placePiece(board, 0, 1, createPiece('flag', 0));
+        board = placePiece(board, 11, 1, createPiece('flag', 1));
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(-1);
+    });
+
+    test('no winner while a flag is captured but the carrier has not reached home yet', () => {
+        let board = emptyBoard();
+        // host's own flag is untouched; guest's flag was captured and is
+        // being carried by this piece, which hasn't reached row 0 yet
+        board = placePiece(board, 0, 1, createPiece('flag', 0));
+        const carrier = createPiece('captain', 0);
+        carrier.carryingFlag = true;
+        board = placePiece(board, 5, 1, carrier);
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(-1);
+    });
+
+    test('affiliation 0 wins once its carrier reaches row 0 (its own home HQ) with the flag', () => {
+        let board = emptyBoard();
+        const carrier = createPiece('captain', 0);
+        carrier.carryingFlag = true;
+        board = placePiece(board, 0, 1, carrier);
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(0);
+    });
+
+    test('affiliation 1 wins once its carrier reaches row 11 (its own home HQ) with the flag', () => {
+        let board = emptyBoard();
+        const carrier = createPiece('general', 1);
+        carrier.carryingFlag = true;
+        board = placePiece(board, 11, 3, carrier);
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(1);
+    });
+
+    test('a carrier merely passing through the enemy half (not its own HQ) does not win', () => {
+        let board = emptyBoard();
+        board = placePiece(board, 0, 1, createPiece('flag', 0));
+        const carrier = createPiece('captain', 0);
+        carrier.carryingFlag = true;
+        // affiliation 0's home HQ is row 0, not row 11 - this is the
+        // opponent's HQ, so simply standing here should not be a win
+        board = placePiece(board, 11, 1, carrier);
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(-1);
+    });
+
+    test('a flag destroyed outright (no carrier anywhere) falls back to an instant loss for its owner', () => {
+        // affiliation 1's flag is simply missing (e.g. destroyed by a bomb)
+        // and nothing on the board is carrying it
+        let board = emptyBoard();
+        board = placePiece(board, 0, 1, createPiece('flag', 0));
+
+        expect(winnerUnderCaptureTheFlag(board)).toBe(0);
     });
 });

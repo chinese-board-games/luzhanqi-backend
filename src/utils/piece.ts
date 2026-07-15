@@ -23,6 +23,9 @@ export interface Piece {
     affiliation: number;
     order: number;
     kills: number;
+    // set under the captureTheFlag rule variant: this piece has captured
+    // the enemy flag and must reach its own home HQ to win with it
+    carryingFlag?: boolean;
 }
 
 /**

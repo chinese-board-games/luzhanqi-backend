@@ -335,4 +335,38 @@ describe('getSuccessors', () => {
         }
         expect(isEqual(moveSet, expectedMovesSet)).toBe(true)
     });
+
+    describe('flyingBombs rule variant', () => {
+        test('by default, a bomb cannot turn corners on the railroad like an Engineer can', () => {
+            board = placePiece(board, 1, 0, createPiece('bomb', 0));
+            const successors = getSuccessors(board, 1, 0, 0);
+            const moveSet = new Set(successors.map((s) => JSON.stringify(s)));
+
+            // straight down col 0 is reachable without turning...
+            expect(moveSet.has(JSON.stringify([5, 0]))).toBe(true);
+            // ...but reaching row 5's horizontal track at another column
+            // requires turning at [5, 0], which a normal piece cannot do
+            expect(moveSet.has(JSON.stringify([5, 1]))).toBe(false);
+        });
+
+        test('with flyingBombs enabled, a bomb turns corners just like an Engineer', () => {
+            board = placePiece(board, 1, 0, createPiece('bomb', 0));
+            const successors = getSuccessors(board, 1, 0, 0, { flyingBombs: true });
+            const moveSet = new Set(successors.map((s) => JSON.stringify(s)));
+
+            expect(moveSet.has(JSON.stringify([5, 0]))).toBe(true);
+            expect(moveSet.has(JSON.stringify([5, 1]))).toBe(true);
+        });
+
+        test('flyingBombs does not change how an Engineer or a normal piece moves', () => {
+            board = placePiece(board, 1, 0, createPiece('engineer', 0));
+            const withFlyingBombs = new Set(
+                getSuccessors(board, 1, 0, 0, { flyingBombs: true }).map((s) => JSON.stringify(s)),
+            );
+            const without = new Set(
+                getSuccessors(board, 1, 0, 0).map((s) => JSON.stringify(s)),
+            );
+            expect(withFlyingBombs).toEqual(without);
+        });
+    });
 });

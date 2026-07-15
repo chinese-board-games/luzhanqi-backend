@@ -346,6 +346,7 @@ async function playerRejoinRoom(
         submittedSide: myGame.playersSubmittedSetup?.includes(playerName) ?? false,
         winnerIndex,
         gameStats,
+        config: myGame.config,
     });
     io.sockets.in(gameId).emit('playerReconnected', { playerName });
 }
@@ -733,7 +734,9 @@ async function pieceSelection(
     }
     const playerIndex = myGame.players.indexOf(playerName);
 
-    const successors = getSuccessors(board, piece[0], piece[1], playerIndex);
+    const successors = getSuccessors(board, piece[0], piece[1], playerIndex, {
+        flyingBombs: myGame.config?.flyingBombs,
+    });
     this.emit('pieceSelected', successors);
 }
 
@@ -828,6 +831,10 @@ async function runAiTurn(gid: string, turn: number) {
         fogged.board as Board,
         aiPlayerIndex,
         myGame.config.aiSettings || DEFAULT_AI_WEIGHTS,
+        {
+            landminesSurvive: myGame.config.landminesSurvive,
+            flyingBombs: myGame.config.flyingBombs,
+        },
     );
 
     if (!move) {

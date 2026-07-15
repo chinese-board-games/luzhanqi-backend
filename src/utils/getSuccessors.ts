@@ -125,8 +125,10 @@ export function _getEngineerRailroadMoves(
         return railroadMoves;
     }
 
-    if (board[r][c]?.name !== 'engineer') {
-        throw Error(`Position [${r}, ${c}] is not an engineer.`);
+    // also used for a bomb under the flyingBombs rule variant, which grants
+    // it the same corner-turning railroad movement as the Engineer
+    if (!['engineer', 'bomb'].includes(board[r][c]?.name || '')) {
+        throw Error(`Position [${r}, ${c}] is not an engineer or bomb.`);
     }
 
     // perform dfs to find availible moves
@@ -225,6 +227,8 @@ export function _getNormalRailroadMoves(
  * @param {number} r The row index of the source coordinate pair.
  * @param {number} c The column index of the source coordinate pair.
  * @param {number} affiliation 0 for host, increments by 1 for additional players.
+ * @param {{flyingBombs?: boolean}} config When flyingBombs is set, a Bomb gets
+ *   the same corner-turning railroad movement as the Engineer.
  * @see getSuccessors
  * @throws Will throw an error if the board is not 12 by 5 and/or if the source
  *   row/col is out of bounds.
@@ -235,6 +239,7 @@ export function getSuccessors(
     r: number,
     c: number,
     affiliation: number,
+    config: { flyingBombs?: boolean } = {},
 ): number[][] {
     // validate the board
     if (board.length !== 12) {
@@ -266,10 +271,11 @@ export function getSuccessors(
         return [];
     }
 
-    const railroadMoves =
-        piece.name === 'engineer'
-            ? _getEngineerRailroadMoves(board, r, c, affiliation)
-            : _getNormalRailroadMoves(board, r, c, affiliation);
+    const hasFullTurnMovement =
+        piece.name === 'engineer' || (config.flyingBombs && piece.name === 'bomb');
+    const railroadMoves = hasFullTurnMovement
+        ? _getEngineerRailroadMoves(board, r, c, affiliation)
+        : _getNormalRailroadMoves(board, r, c, affiliation);
 
     const adjListMoves =
         [...(adjList.get(JSON.stringify([r, c])) || [])]

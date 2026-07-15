@@ -4,6 +4,7 @@ import { Board } from './board';
 import { AiWeights, DEFAULT_AI_WEIGHTS } from './aiConstants';
 
 export type AiMove = { source: [number, number]; target: [number, number] };
+export type AiRulesConfig = { landminesSurvive?: boolean; flyingBombs?: boolean };
 
 // fixed (non-tunable) constants for the heuristic move scorer
 const TOP_MARGIN = 1;
@@ -63,13 +64,20 @@ function estimateHiddenTargetScore(
 
 // deterministic outcome of attacking a target whose identity is known
 // (fog off, or a revealed flag) - mirrors pieceMovement's combat rules
-function evaluateKnownTarget(source: Piece, target: Piece, aggression: number): number {
-    if (
-        source.name === 'bomb' ||
-        source.name === target.name ||
-        target.name === 'bomb' ||
-        (source.name !== 'engineer' && target.name === 'landmine')
-    ) {
+function evaluateKnownTarget(
+    source: Piece,
+    target: Piece,
+    aggression: number,
+    landminesSurvive: boolean,
+): number {
+    if (source.name !== 'engineer' && target.name === 'landmine') {
+        // under landminesSurvive the mine stays and only the attacker dies -
+        // strictly worse than the default mutual destruction (source.order
+        // would also be lost as a mutual trade there, but at least the mine
+        // goes with it)
+        return landminesSurvive ? -source.order : 0;
+    }
+    if (source.name === 'bomb' || source.name === target.name || target.name === 'bomb') {
         return 0; // mutual destruction, roughly neutral
     }
     if (
@@ -81,13 +89,17 @@ function evaluateKnownTarget(source: Piece, target: Piece, aggression: number): 
     return -source.order; // source loses
 }
 
-function computeThreatenedSquares(board: Board, aiPlayerIndex: number): Set<string> {
+function computeThreatenedSquares(
+    board: Board,
+    aiPlayerIndex: number,
+    rules: AiRulesConfig,
+): Set<string> {
     const threatened = new Set<string>();
     for (let r = 0; r < 12; r += 1) {
         for (let c = 0; c < 5; c += 1) {
             const piece = board[r][c];
             if (piece && piece.affiliation !== aiPlayerIndex) {
-                getSuccessors(board, r, c, piece.affiliation).forEach(
+                getSuccessors(board, r, c, piece.affiliation, rules).forEach(
                     ([tr, tc]) => threatened.add(`${tr},${tc}`),
                 );
             }
@@ -102,17 +114,20 @@ function computeThreatenedSquares(board: Board, aiPlayerIndex: number): Set<stri
  * would send a real player, never the true identity of enemy pieces.
  *
  * `weights` lets a game tune how the AI plays (see aiConstants.ts for the
- * meaning of each setting and their defaults).
+ * meaning of each setting and their defaults). `rules` mirrors the game's
+ * rule-variant config so the AI evaluates moves the same way the server
+ * will actually resolve them.
  * @see chooseAiMove
  */
 export function chooseAiMove(
     fogBoard: Board,
     aiPlayerIndex: number,
     weights: AiWeights = DEFAULT_AI_WEIGHTS,
+    rules: AiRulesConfig = {},
 ): AiMove | null {
     const { randomness, positionalDrive, caution, aggression } = weights;
     const enemyHQRow = aiPlayerIndex === 0 ? 0 : 11;
-    const threatenedSquares = computeThreatenedSquares(fogBoard, aiPlayerIndex);
+    const threatenedSquares = computeThreatenedSquares(fogBoard, aiPlayerIndex, rules);
 
     const candidates: { move: AiMove; score: number }[] = [];
     for (let r = 0; r < 12; r += 1) {
@@ -121,7 +136,7 @@ export function chooseAiMove(
             if (!piece || piece.affiliation !== aiPlayerIndex) {
                 continue;
             }
-            const destinations = getSuccessors(fogBoard, r, c, aiPlayerIndex);
+            const destinations = getSuccessors(fogBoard, r, c, aiPlayerIndex, rules);
             destinations.forEach(([tr, tc]) => {
                 const target = fogBoard[tr][tc];
                 let score: number;
@@ -133,7 +148,12 @@ export function chooseAiMove(
                 } else if (target.name === 'enemy') {
                     score = estimateHiddenTargetScore(piece.name, piece.order, aggression);
                 } else {
-                    score = evaluateKnownTarget(piece, target, aggression);
+                    score = evaluateKnownTarget(
+                        piece,
+                        target,
+                        aggression,
+                        !!rules.landminesSurvive,
+                    );
                 }
                 score += (Math.random() - 0.5) * randomness;
                 candidates.push({ move: { source: [r, c], target: [tr, tc] }, score });

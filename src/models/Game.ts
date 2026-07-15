@@ -6,11 +6,23 @@ interface IGameConfig extends Document {
     fogOfWar: boolean;
     opponentType: 'human' | 'ai';
     aiSettings?: AiWeights;
+    // rule variants - all default false, preserving prior behavior:
+    // a non-Engineer attacking a landmine destroys both (mutual destruction)
+    landminesSurvive: boolean;
+    // bombs move like an ordinary piece (straight lines/railroad only)
+    flyingBombs: boolean;
+    // capturing the enemy flag ends the game immediately
+    captureTheFlag: boolean;
 }
 
 export type GameConfigData = Pick<
     IGameConfig,
-    'fogOfWar' | 'opponentType' | 'aiSettings'
+    | 'fogOfWar'
+    | 'opponentType'
+    | 'aiSettings'
+    | 'landminesSurvive'
+    | 'flyingBombs'
+    | 'captureTheFlag'
 >;
 
 export interface IGame extends Document {
@@ -81,6 +93,9 @@ const GameSchema = new Schema<IGame, GameModelType>(
         config: new Schema<IGameConfig>({
             fogOfWar: Boolean,
             opponentType: { type: String, default: 'human' },
+            landminesSurvive: { type: Boolean, default: false },
+            flyingBombs: { type: Boolean, default: false },
+            captureTheFlag: { type: Boolean, default: false },
             aiSettings: {
                 type: new Schema(
                     {
