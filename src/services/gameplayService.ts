@@ -32,22 +32,32 @@ export type PieceMovementConfig = {
     captureTheFlag?: boolean;
 };
 
-const HQ_COLS = [1, 3];
+// tried in order: the two HQ cells first, then the rest of the home row
+const HOME_ROW_COLS = [1, 3, 0, 2, 4];
 // host (affiliation 0) occupies the bottom half of the merged 12-row board
 // (HQ at row 11); the guest (affiliation 1) occupies the top half (HQ at
 // row 0) - see submitInitialBoard's merge order in this same file
 const homeHQRow = (affiliation: number) => (affiliation === 0 ? 11 : 0);
 
-// finds an empty home-HQ cell for the given affiliation, preferring col 1
-// then col 3 - used to respawn a dropped flag under captureTheFlag
-function findEmptyHomeHQCell(board: Board, affiliation: number): Coord | null {
+// finds a cell to respawn a dropped flag on: the owning affiliation's home
+// row, preferring the two HQ cells but falling back to any empty cell in
+// that row (a fresh 25-piece setup fills every cell, so both HQ cells
+// being occupied - by the carrier's captor, by a landmine that never
+// moved, etc - is common, not a rare edge case). If the entire home row is
+// somehow full, falls back to `fallbackCell`, which the caller must
+// guarantee is empty.
+function findFlagDropCell(
+    board: Board,
+    affiliation: number,
+    fallbackCell: Coord,
+): Coord {
     const row = homeHQRow(affiliation);
-    for (const col of HQ_COLS) {
+    for (const col of HOME_ROW_COLS) {
         if (board[row][col] === null) {
             return [row, col];
         }
     }
-    return null;
+    return fallbackCell;
 }
 
 // returns a new board with the move applied, and any pieces that died as a result
@@ -130,24 +140,25 @@ export function pieceMovement(
 
     // under captureTheFlag, a flag being carried never truly vanishes: if
     // its carrier just died (to anything - a landmine, a bomb, a stronger
-    // piece), the flag drops and respawns at its original owner's home HQ
-    // instead, rather than ending the game or disappearing forever. If
-    // neither home HQ cell is free (rare - something else moved in) the
-    // flag is simply lost.
+    // piece), the flag drops and respawns at its original owner's home row
+    // instead, rather than ending the game or disappearing forever. The
+    // source tile of this move is always empty afterward whenever a piece
+    // died (every combat branch above vacates it), so it's always a valid
+    // last-resort drop spot. This guarantees the flag can only ever
+    // disappear from the board outright (ending the game per winner()'s
+    // fallback) by being destroyed before anyone has captured it.
     if (config.captureTheFlag) {
         deadPieces
             .filter((piece) => piece.carryingFlag)
             .forEach((fallenCarrier) => {
                 const flagOwnerAffiliation = 1 - fallenCarrier.affiliation;
-                const cell = findEmptyHomeHQCell(board, flagOwnerAffiliation);
-                if (cell) {
-                    board[cell[0]][cell[1]] = {
-                        name: 'flag',
-                        affiliation: flagOwnerAffiliation,
-                        order: 0,
-                        kills: 0,
-                    };
-                }
+                const cell = findFlagDropCell(board, flagOwnerAffiliation, source);
+                board[cell[0]][cell[1]] = {
+                    name: 'flag',
+                    affiliation: flagOwnerAffiliation,
+                    order: 0,
+                    kills: 0,
+                };
             });
     }
 

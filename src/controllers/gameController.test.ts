@@ -4,6 +4,7 @@ import {
     generateJoinCode,
     winnerUnderCaptureTheFlag,
 } from './gameController';
+import { pieceMovement } from '../services/gameplayService';
 import { emptyBoard } from '../utils/board';
 import { createPiece, placePiece } from '../utils/piece';
 
@@ -135,5 +136,30 @@ describe('winnerUnderCaptureTheFlag', () => {
         board = placePiece(board, 0, 1, createPiece('flag', 0));
 
         expect(winnerUnderCaptureTheFlag(board)).toBe(0);
+    });
+
+    // regression test for a real bug: the side that killed a flag carrier
+    // was being declared the loser, because the carrier's own opponent's
+    // home HQ cells happened to already be full (the normal case at the
+    // start of a game), so the flag failed to respawn and the instant-loss
+    // fallback (meant only for a flag destroyed outright, pre-capture)
+    // fired incorrectly instead.
+    test('killing a flag carrier does not end the game, even when the flag owner has no free HQ cell', () => {
+        let board = emptyBoard();
+        // host's own flag is untouched at its home HQ
+        board = placePiece(board, 11, 1, createPiece('flag', 0));
+        const carrier = createPiece('captain', 0);
+        carrier.carryingFlag = true;
+        board = placePiece(board, 6, 0, carrier);
+        board = placePiece(board, 0, 1, createPiece('landmine', 1));
+        board = placePiece(board, 0, 3, createPiece('landmine', 1));
+        board = placePiece(board, 7, 0, createPiece('general', 1));
+
+        // affiliation 1 kills affiliation 0's carrier
+        const { board: newBoard } = pieceMovement(board, [6, 0], [7, 0], {
+            captureTheFlag: true,
+        });
+
+        expect(winnerUnderCaptureTheFlag(newBoard)).toBe(-1);
     });
 });
