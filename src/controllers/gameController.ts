@@ -106,6 +106,9 @@ export const createGame = async ({
     const resolvedConfig: GameConfigData = {
         fogOfWar: true,
         opponentType: 'human',
+        landminesSurvive: false,
+        flyingBombs: false,
+        captureTheFlag: false,
         ...gameConfig,
         aiSettings: { ...DEFAULT_AI_WEIGHTS, ...gameConfig?.aiSettings },
     };
@@ -454,12 +457,76 @@ export const updateGame = async (
     updateFields: Record<string, unknown>,
 ) => await Game.findByIdAndUpdate(gid, updateFields);
 
+/**
+ * Pure win-check for the captureTheFlag rule variant, extracted from
+ * winner() so it's testable without a database. A carrier wins by reaching
+ * its own home HQ row; a flag destroyed outright (e.g. by a bomb) with no
+ * one carrying it falls back to an instant loss for its owner.
+ * @see winnerUnderCaptureTheFlag
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function winnerUnderCaptureTheFlag(myBoard: any): number {
+    const flagsPresent = [false, false];
+    let winnerIndex = -1;
+
+    for (let rowI = 0; rowI < myBoard.length; rowI += 1) {
+        const row = myBoard[rowI];
+        for (let colI = 0; colI < row.length; colI += 1) {
+            const piece = row[colI];
+            if (piece === null) {
+                // eslint-disable-next-line no-continue
+                continue;
+            }
+            if (piece.name === 'flag') {
+                flagsPresent[piece.affiliation] = true;
+            }
+            // host (affiliation 0) occupies the bottom half of the merged
+            // board (HQ at row 11); the guest (affiliation 1) occupies the
+            // top half (HQ at row 0) - see submitInitialBoard's merge order
+            const homeHQRow = piece.affiliation === 0 ? 11 : 0;
+            if (piece.carryingFlag && rowI === homeHQRow) {
+                // carrier reached its own HQ with the enemy flag
+                winnerIndex = piece.affiliation;
+            }
+        }
+    }
+    if (winnerIndex !== -1) {
+        return winnerIndex;
+    }
+
+    // a flag can still be destroyed outright (e.g. by a bomb) without ever
+    // being carried - if so, fall back to the simple-capture rule (missing
+    // flag with no one carrying it is an instant loss for its owner)
+    for (let affiliation = 0; affiliation < 2; affiliation += 1) {
+        if (flagsPresent[affiliation]) {
+            // eslint-disable-next-line no-continue
+            continue;
+        }
+        const carrierAffiliation = 1 - affiliation;
+        const isBeingCarried = myBoard.some((row: any[]) =>
+            row.some(
+                (piece) =>
+                    piece?.carryingFlag &&
+                    piece.affiliation === carrierAffiliation,
+            ),
+        );
+        if (!isBeingCarried) {
+            return carrierAffiliation;
+        }
+    }
+    return -1;
+}
+
 export const winner = async (gid: string) => {
     const myGame = await getGameById(gid);
     if (!myGame) {
         return -1;
     }
     const myBoard = (await myGame.board) as any;
+
+    if (myGame.config?.captureTheFlag) {
+        return winnerUnderCaptureTheFlag(myBoard);
+    }
 
     let flags = 0;
     for (let rowI = 0; rowI < myBoard.length; rowI += 1) {

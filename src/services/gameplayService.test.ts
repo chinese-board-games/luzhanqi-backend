@@ -49,4 +49,164 @@ describe('pieceMovement', () => {
         expect(newBoard[7][0]).toBeNull();
         expect(newBoard[6][0]).toBeNull();
     });
+
+    describe('landminesSurvive rule variant', () => {
+        test('default (off): a non-Engineer attacking a landmine destroys both', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 6, 0, createPiece('captain', 0));
+            board = placePiece(board, 7, 0, createPiece('landmine', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+
+            expect(deadPieces).toHaveLength(2);
+            expect(newBoard[7][0]).toBeNull();
+            expect(newBoard[6][0]).toBeNull();
+        });
+
+        test('on: a non-Engineer attacking a landmine dies alone, mine stays', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 6, 0, createPiece('captain', 0));
+            board = placePiece(board, 7, 0, createPiece('landmine', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
+                landminesSurvive: true,
+            });
+
+            expect(deadPieces).toEqual([
+                expect.objectContaining({ name: 'captain', affiliation: 0 }),
+            ]);
+            expect(newBoard[6][0]).toBeNull();
+            expect(newBoard[7][0]).toMatchObject({ name: 'landmine', affiliation: 1 });
+        });
+
+        test('an Engineer always safely defuses a landmine regardless of the setting', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 6, 0, createPiece('engineer', 0));
+            board = placePiece(board, 7, 0, createPiece('landmine', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
+                landminesSurvive: true,
+            });
+
+            expect(deadPieces).toEqual([
+                expect.objectContaining({ name: 'landmine', affiliation: 1 }),
+            ]);
+            expect(newBoard[7][0]).toMatchObject({ name: 'engineer', affiliation: 0 });
+            expect(newBoard[6][0]).toBeNull();
+        });
+    });
+
+    describe('captureTheFlag rule variant', () => {
+        test('capturing the flag marks the capturer as carrying it, board keeps the piece alive', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 1, 1, createPiece('captain', 0));
+            board = placePiece(board, 0, 1, createPiece('flag', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [1, 1], [0, 1], {
+                captureTheFlag: true,
+            });
+
+            expect(deadPieces).toEqual([
+                expect.objectContaining({ name: 'flag', affiliation: 1 }),
+            ]);
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'captain',
+                affiliation: 0,
+                carryingFlag: true,
+            });
+        });
+
+        test('if the carrier is later destroyed in a mutual trade, the flag respawns at its home HQ', () => {
+            let board = emptyBoard();
+            const carrier = createPiece('captain', 0);
+            carrier.carryingFlag = true;
+            board = placePiece(board, 6, 0, carrier);
+            board = placePiece(board, 7, 0, createPiece('captain', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
+                captureTheFlag: true,
+            });
+
+            expect(deadPieces.some((p) => p.carryingFlag)).toBe(true);
+            // carrier was affiliation 0, so the respawned flag belongs to
+            // affiliation 1 (whoever originally owned it) at its home HQ (row 0)
+            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+        });
+
+        test('if the carrier loses a fight, the flag respawns at its home HQ', () => {
+            let board = emptyBoard();
+            const carrier = createPiece('captain', 0);
+            carrier.carryingFlag = true;
+            board = placePiece(board, 6, 0, carrier);
+            board = placePiece(board, 7, 0, createPiece('general', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
+                captureTheFlag: true,
+            });
+
+            expect(deadPieces).toEqual([
+                expect.objectContaining({ name: 'captain', affiliation: 0, carryingFlag: true }),
+            ]);
+            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+        });
+
+        test('if both HQ cells are occupied, the flag respawns elsewhere in the home row instead of vanishing', () => {
+            let board = emptyBoard();
+            const carrier = createPiece('captain', 0);
+            carrier.carryingFlag = true;
+            board = placePiece(board, 6, 0, carrier);
+            // both of affiliation 1's HQ cells (row 0, cols 1 and 3) are
+            // already occupied by other pieces of its own - this is the
+            // normal state at the start of a game, not a rare edge case
+            board = placePiece(board, 0, 1, createPiece('landmine', 1));
+            board = placePiece(board, 0, 3, createPiece('landmine', 1));
+            board = placePiece(board, 7, 0, createPiece('general', 1));
+
+            const { board: newBoard } = pieceMovement(board, [6, 0], [7, 0], {
+                captureTheFlag: true,
+            });
+
+            // HQ cells stay untouched; the flag lands in another empty
+            // cell of the same home row instead
+            expect(newBoard[0][1]).toMatchObject({ name: 'landmine', affiliation: 1 });
+            expect(newBoard[0][3]).toMatchObject({ name: 'landmine', affiliation: 1 });
+            const flagCellsInRow = newBoard[0].filter((p) => p?.name === 'flag');
+            expect(flagCellsInRow).toHaveLength(1);
+            expect(flagCellsInRow[0]).toMatchObject({ affiliation: 1 });
+        });
+
+        test('if the entire home row is occupied, the flag drops at the move source square instead of vanishing', () => {
+            let board = emptyBoard();
+            const carrier = createPiece('captain', 0);
+            carrier.carryingFlag = true;
+            board = placePiece(board, 6, 0, carrier);
+            // fill every cell of affiliation 1's home row (row 0)
+            [0, 1, 2, 3, 4].forEach((col) => {
+                board = placePiece(board, 0, col, createPiece('landmine', 1));
+            });
+            board = placePiece(board, 7, 0, createPiece('general', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
+                captureTheFlag: true,
+            });
+
+            expect(deadPieces.some((p) => p.carryingFlag)).toBe(true);
+            // home row is untouched (still all landmines); the flag drops
+            // at [6, 0], the move's source square, which is always empty
+            // after a death
+            expect(newBoard[0].every((p) => p?.name === 'landmine')).toBe(true);
+            expect(newBoard[6][0]).toMatchObject({ name: 'flag', affiliation: 1 });
+        });
+
+        test('without captureTheFlag, a captured flag simply disappears (default behavior unchanged)', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 1, 1, createPiece('captain', 0));
+            board = placePiece(board, 0, 1, createPiece('flag', 1));
+
+            const { board: newBoard } = pieceMovement(board, [1, 1], [0, 1]);
+
+            expect(newBoard[0][1]).toMatchObject({ name: 'captain', affiliation: 0 });
+            expect(newBoard[0][1]?.carryingFlag).toBeUndefined();
+        });
+    });
 });

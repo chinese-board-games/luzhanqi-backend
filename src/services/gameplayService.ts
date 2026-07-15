@@ -22,8 +22,51 @@ import { Piece as FoggablePiece } from '../types';
 
 type Coord = [number, number];
 
+export type PieceMovementConfig = {
+    // a non-Engineer attacking a landmine destroys only itself, leaving the
+    // mine in place, instead of destroying both (the default)
+    landminesSurvive?: boolean;
+    // capturing the enemy flag marks the capturer as carrying it instead of
+    // ending the game; that side wins only once the carrier reaches its own
+    // home HQ (see gameController.winner)
+    captureTheFlag?: boolean;
+};
+
+// tried in order: the two HQ cells first, then the rest of the home row
+const HOME_ROW_COLS = [1, 3, 0, 2, 4];
+// host (affiliation 0) occupies the bottom half of the merged 12-row board
+// (HQ at row 11); the guest (affiliation 1) occupies the top half (HQ at
+// row 0) - see submitInitialBoard's merge order in this same file
+const homeHQRow = (affiliation: number) => (affiliation === 0 ? 11 : 0);
+
+// finds a cell to respawn a dropped flag on: the owning affiliation's home
+// row, preferring the two HQ cells but falling back to any empty cell in
+// that row (a fresh 25-piece setup fills every cell, so both HQ cells
+// being occupied - by the carrier's captor, by a landmine that never
+// moved, etc - is common, not a rare edge case). If the entire home row is
+// somehow full, falls back to `fallbackCell`, which the caller must
+// guarantee is empty.
+function findFlagDropCell(
+    board: Board,
+    affiliation: number,
+    fallbackCell: Coord,
+): Coord {
+    const row = homeHQRow(affiliation);
+    for (const col of HOME_ROW_COLS) {
+        if (board[row][col] === null) {
+            return [row, col];
+        }
+    }
+    return fallbackCell;
+}
+
 // returns a new board with the move applied, and any pieces that died as a result
-export function pieceMovement(board: Board, source: Coord, target: Coord) {
+export function pieceMovement(
+    board: Board,
+    source: Coord,
+    target: Coord,
+    config: PieceMovementConfig = {},
+) {
     // copy the board
     board = cloneDeep(board);
     const deadPieces: Piece[] = [];
@@ -49,13 +92,26 @@ export function pieceMovement(board: Board, source: Coord, target: Coord) {
         return { board, deadPieces };
     }
 
-    if (
+    // landmines are handled before the generic order comparison below,
+    // since their order (-1) would otherwise let any real piece "win"
+    // against one - this branch only fires for non-Engineers; an Engineer
+    // falls through to the order-comparison branch and safely defuses it
+    if (targetPiece && targetPiece.name === 'landmine' && sourcePiece.name !== 'engineer') {
+        if (config.landminesSurvive) {
+            // the mine survives; only the attacker is destroyed
+            deadPieces.push(sourcePiece);
+            board[source[0]][source[1]] = null;
+        } else {
+            // mutual destruction (default)
+            deadPieces.push(targetPiece, sourcePiece);
+            board[target[0]][target[1]] = null;
+            board[source[0]][source[1]] = null;
+        }
+    } else if (
         targetPiece &&
         (sourcePiece.name === 'bomb' ||
             sourcePiece.name === targetPiece.name ||
-            targetPiece.name === 'bomb' ||
-            (sourcePiece.name !== 'engineer' &&
-                targetPiece.name === 'landmine'))
+            targetPiece.name === 'bomb')
     ) {
         // remove both pieces
         deadPieces.push(
@@ -64,16 +120,15 @@ export function pieceMovement(board: Board, source: Coord, target: Coord) {
         );
         board[target[0]][target[1]] = null;
         board[source[0]][source[1]] = null;
-    } else if (
-        targetPiece === null ||
-        sourcePiece.order > targetPiece.order ||
-        (sourcePiece.name === 'engineer' && targetPiece.name === 'landmine')
-    ) {
+    } else if (targetPiece === null || sourcePiece.order > targetPiece.order) {
         // place source piece on target tile, remove source piece from source tile
         if (targetPiece) {
             // a piece was actually captured here - the source piece survives
             // and occupies the target tile, so it must not be marked dead
             deadPieces.push(targetPiece);
+            if (config.captureTheFlag && targetPiece.name === 'flag') {
+                sourcePiece.carryingFlag = true;
+            }
         }
         board[target[0]][target[1]] = sourcePiece;
         board[source[0]][source[1]] = null;
@@ -82,6 +137,31 @@ export function pieceMovement(board: Board, source: Coord, target: Coord) {
         deadPieces.push(board[source[0]][source[1]] as Piece);
         board[source[0]][source[1]] = null;
     }
+
+    // under captureTheFlag, a flag being carried never truly vanishes: if
+    // its carrier just died (to anything - a landmine, a bomb, a stronger
+    // piece), the flag drops and respawns at its original owner's home row
+    // instead, rather than ending the game or disappearing forever. The
+    // source tile of this move is always empty afterward whenever a piece
+    // died (every combat branch above vacates it), so it's always a valid
+    // last-resort drop spot. This guarantees the flag can only ever
+    // disappear from the board outright (ending the game per winner()'s
+    // fallback) by being destroyed before anyone has captured it.
+    if (config.captureTheFlag) {
+        deadPieces
+            .filter((piece) => piece.carryingFlag)
+            .forEach((fallenCarrier) => {
+                const flagOwnerAffiliation = 1 - fallenCarrier.affiliation;
+                const cell = findFlagDropCell(board, flagOwnerAffiliation, source);
+                board[cell[0]][cell[1]] = {
+                    name: 'flag',
+                    affiliation: flagOwnerAffiliation,
+                    order: 0,
+                    kills: 0,
+                };
+            });
+    }
+
     return { board, deadPieces };
 }
 
@@ -186,6 +266,10 @@ export async function applyMove(
         myBoard as Board,
         source,
         target,
+        {
+            landminesSurvive: myGame.config?.landminesSurvive,
+            captureTheFlag: myGame.config?.captureTheFlag,
+        },
     );
     if (isEqual(newBoard, myBoard)) {
         return { ok: false, reason: 'No move made.' };
