@@ -12,7 +12,7 @@ import {
     sanitizeGameForClient,
 } from '../controllers/gameController';
 import { pieces, validateSetup, printBoard, emplaceBoardFog } from '../utils';
-import { generateRandomValidHalfBoard } from '../utils/aiSetup';
+import { chooseAiExampleHalfBoard } from '../utils/exampleBoards';
 import { AI_PLAYER_NAME, AI_SOCKET_SENTINEL } from '../utils/aiConstants';
 import { Board } from '../utils/board';
 import { Piece } from '../utils/piece';
@@ -304,17 +304,18 @@ export async function submitInitialBoard(
 }
 
 /**
- * Generates and submits the AI's setup half-board through the same path a
- * real guest player's placement would take. The AI always occupies seat 1.
+ * Picks one of the curated example half-boards at random and submits it
+ * through the same path a real guest player's placement would take. The AI
+ * always occupies seat 1.
  * @see submitAiInitialBoard
  */
 export async function submitAiInitialBoard(gid: string): Promise<SetupResult> {
-    const aiHalfBoard = generateRandomValidHalfBoard(1);
+    const aiHalfBoard = chooseAiExampleHalfBoard(1);
     // submitInitialBoard reverses non-host (playerIndex !== 0) submissions
     // before validating/storing them, since that's what a real guest
     // player's raw submission is expected to look like (see the guest
     // branch below) - pre-reverse here so it round-trips back to the
-    // valid board generateRandomValidHalfBoard actually built.
+    // valid board chooseAiExampleHalfBoard actually built.
     const submissionOrientedBoard = [...aiHalfBoard].reverse();
     return submitInitialBoard(gid, AI_PLAYER_NAME, submissionOrientedBoard);
 }
