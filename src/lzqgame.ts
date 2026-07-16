@@ -24,7 +24,7 @@ import {
     broadcastGameState,
     getGameStats,
 } from './services/gameplayService';
-import { getSuccessors, emplaceBoardFog } from './utils';
+import { getSuccessors, emplaceBoardFog, verifyIdToken } from './utils';
 import { chooseAiMove } from './utils/aiPlayer';
 import { AI_PLAYER_NAME, DEFAULT_AI_WEIGHTS } from './utils/aiConstants';
 import { Board, Piece } from './types';
@@ -67,6 +67,33 @@ export const initGame = (sio: Server, socket: Socket) => {
     gameSocket.on('disconnect', playerDisconnect);
 };
 
+// sentinel distinguishing "token verification failed" from a legitimate
+// null uid (anonymous play) - callers bail out on this without proceeding,
+// since a present-but-invalid token is treated as an error, never silently
+// downgraded to anonymous (see verifyIdToken)
+const TOKEN_INVALID = Symbol('TOKEN_INVALID');
+
+/**
+ * Verifies an optional Firebase ID token for a socket event handler. Emits
+ * an 'error' event and returns TOKEN_INVALID on failure, so callers can bail
+ * out early with `if (uid === TOKEN_INVALID) return;`.
+ * @see resolveUid
+ */
+async function resolveUid(
+    socket: Socket,
+    idToken: string | null | undefined,
+): Promise<string | null | typeof TOKEN_INVALID> {
+    try {
+        return await verifyIdToken(idToken);
+    } catch (err) {
+        console.error('Token verification failed:', err);
+        socket.emit('error', [
+            'Your session could not be verified. Please sign in again.',
+        ]);
+        return TOKEN_INVALID;
+    }
+}
+
 /* *******************************
  *                             *
  *       HOST FUNCTIONS        *
@@ -80,14 +107,17 @@ async function hostCreateNewGame(
     this: Socket,
     {
         playerName,
-        hostId,
+        idToken,
         gameConfig,
     }: {
         playerName: string;
-        hostId: string | null;
+        idToken?: string | null;
         gameConfig?: Partial<GameConfigData>;
     },
 ) {
+    const hostId = await resolveUid(this, idToken);
+    if (hostId === TOKEN_INVALID) return;
+
     const myGame = await createGame({
         host: playerName,
         playerToUidMap: new Map([[playerName, hostId]]),
@@ -164,12 +194,17 @@ async function playerJoinRoom(
     data: {
         playerName: string;
         clientId: string | null;
+        idToken?: string | null;
         joinRoomId: string;
         mySocketId: string;
         players: string[];
         spectators: string[];
     },
 ) {
+    const clientId = await resolveUid(this, data.idToken);
+    if (clientId === TOKEN_INVALID) return;
+    data.clientId = clientId;
+
     console.info(
         `Player ${data.playerName} attempting to join room: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
@@ -260,17 +295,20 @@ async function playerRejoinRoom(
         gameId,
         playerName,
         token,
-        uid,
+        idToken,
     }: {
         gameId: string;
         playerName?: string;
         token?: string;
-        uid?: string | null;
+        idToken?: string | null;
     },
 ) {
     console.info(
         `Player ${playerName || '(unknown)'} attempting to rejoin room: ${gameId} on socket id: ${this.id}`,
     );
+
+    const uid = await resolveUid(this, idToken);
+    if (uid === TOKEN_INVALID) return;
 
     const myGame = await getGameById(gameId);
     if (!myGame) {
@@ -280,7 +318,8 @@ async function playerRejoinRoom(
 
     // proof of seat ownership is either the token issued to this device at
     // join time, or - for a device that's never seen this game before -
-    // a logged-in uid matching the one recorded for a seat when it joined
+    // a Firebase-verified uid matching the one recorded for a seat when it
+    // joined (never the raw client-asserted uid)
     let resolvedPlayerName: string | undefined;
     if (
         playerName &&
@@ -371,7 +410,12 @@ type ActiveGameSummary = {
  * dismissed via archiveGame. Only the single most recently updated such
  * game is returned - older ones are still visible in full game history.
  */
-async function getMyActiveGames(this: Socket, { uid }: { uid: string | null }) {
+async function getMyActiveGames(
+    this: Socket,
+    { idToken }: { idToken?: string | null },
+) {
+    const uid = await resolveUid(this, idToken);
+    if (uid === TOKEN_INVALID) return;
     if (!uid) {
         this.emit('myActiveGames', []);
         return;
@@ -440,10 +484,15 @@ async function playerLeaveRoom(
     data: {
         playerName: string;
         uid: string | null;
+        idToken?: string | null;
         leaveRoomId: string;
         players: string[];
     },
 ) {
+    const uid = await resolveUid(this, data.idToken);
+    if (uid === TOKEN_INVALID) return;
+    data.uid = uid;
+
     console.info(
         `Player with name: ${data.playerName} leaving room ${data.leaveRoomId}`,
     );
@@ -540,12 +589,17 @@ async function spectateRoom(
     data: {
         spectatorName: string;
         clientId: string | null;
+        idToken?: string | null;
         joinRoomId: string;
         mySocketId: string;
         spectators: string[];
         players: string[];
     },
 ) {
+    const clientId = await resolveUid(this, data.idToken);
+    if (clientId === TOKEN_INVALID) return;
+    data.clientId = clientId;
+
     console.info(
         `Spectator ${data.spectatorName} attempting to join room: ${data.joinRoomId} with client ID: ${data.clientId} on socket id: ${this.id}`,
     );
@@ -635,10 +689,15 @@ async function spectatorLeaveRoom(
     data: {
         spectatorName: string;
         uid: string | null;
+        idToken?: string | null;
         leaveRoomId: string;
         spectators: string[];
     },
 ) {
+    const uid = await resolveUid(this, data.idToken);
+    if (uid === TOKEN_INVALID) return;
+    data.uid = uid;
+
     console.info(
         `Player with name: ${data.spectatorName} leaving room ${data.leaveRoomId}`,
     );
@@ -749,13 +808,13 @@ async function playerMakeMove(
     this: Socket,
     {
         playerName,
-        uid,
+        idToken,
         room: gid,
         turn,
         pendingMove,
     }: {
         playerName: string;
-        uid: string | null;
+        idToken?: string | null;
         room: string;
         turn: number;
         pendingMove: {
@@ -764,7 +823,10 @@ async function playerMakeMove(
         };
     },
 ) {
-    const result = await applyMove(gid, playerName, uid || null, turn, pendingMove);
+    const uid = await resolveUid(this, idToken);
+    if (uid === TOKEN_INVALID) return;
+
+    const result = await applyMove(gid, playerName, uid, turn, pendingMove);
     if (!result.ok) {
         this.emit('error', [result.reason]);
         return;

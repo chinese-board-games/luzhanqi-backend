@@ -1,7 +1,7 @@
 // router for the user
 // Path: src\routes\user\index.ts
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 // import functions from the controller
 import {
     createUser,
@@ -14,10 +14,24 @@ import {
     getRank,
     setRank,
 } from '../../controllers/userController';
+import { requireAuth } from '../../middleware/auth';
 
 const user = Router();
 
 // start urls with "user/"
+
+// every route below operates on :userId's own data - require the caller to
+// be authenticated as that exact user; no legitimate cross-user access
+// exists in the current UI (a user only ever reads/writes their own profile)
+function requireSelf(req: Request, res: Response, next: NextFunction) {
+    if (req.uid !== req.params.userId) {
+        res.status(403).send('You may only access your own user data.');
+        return;
+    }
+    next();
+}
+
+user.use('/:userId', requireAuth, requireSelf);
 
 // create a user
 user.post('/:userId', async (req, res) => {
