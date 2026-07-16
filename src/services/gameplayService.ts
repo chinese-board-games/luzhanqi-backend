@@ -96,13 +96,19 @@ export function pieceMovement(
     // since their order (-1) would otherwise let any real piece "win"
     // against one - this branch only fires for non-Engineers; an Engineer
     // falls through to the order-comparison branch and safely defuses it
-    if (targetPiece && targetPiece.name === 'landmine' && sourcePiece.name !== 'engineer') {
-        if (config.landminesSurvive) {
-            // the mine survives; only the attacker is destroyed
+    if (
+        targetPiece &&
+        targetPiece.name === 'landmine' &&
+        sourcePiece.name !== 'engineer'
+    ) {
+        if (config.landminesSurvive && sourcePiece.name !== 'bomb') {
+            // the mine survives; only the attacker is destroyed - except a
+            // bomb, which blows itself and the mine up regardless of this
+            // setting (bombs always trade with whatever they hit)
             deadPieces.push(sourcePiece);
             board[source[0]][source[1]] = null;
         } else {
-            // mutual destruction (default)
+            // mutual destruction (default, and always for a bomb attacker)
             deadPieces.push(targetPiece, sourcePiece);
             board[target[0]][target[1]] = null;
             board[source[0]][source[1]] = null;
@@ -152,7 +158,11 @@ export function pieceMovement(
             .filter((piece) => piece.carryingFlag)
             .forEach((fallenCarrier) => {
                 const flagOwnerAffiliation = 1 - fallenCarrier.affiliation;
-                const cell = findFlagDropCell(board, flagOwnerAffiliation, source);
+                const cell = findFlagDropCell(
+                    board,
+                    flagOwnerAffiliation,
+                    source,
+                );
                 board[cell[0]][cell[1]] = {
                     name: 'flag',
                     affiliation: flagOwnerAffiliation,
