@@ -7,10 +7,17 @@ describe('pieceMovement', () => {
         let board = emptyBoard();
         board = placePiece(board, 6, 0, createPiece('engineer', 0));
 
-        const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+        const { board: newBoard, deadPieces } = pieceMovement(
+            board,
+            [6, 0],
+            [7, 0],
+        );
 
         expect(deadPieces).toEqual([]);
-        expect(newBoard[7][0]).toMatchObject({ name: 'engineer', affiliation: 0 });
+        expect(newBoard[7][0]).toMatchObject({
+            name: 'engineer',
+            affiliation: 0,
+        });
         expect(newBoard[6][0]).toBeNull();
     });
 
@@ -19,10 +26,19 @@ describe('pieceMovement', () => {
         board = placePiece(board, 6, 0, createPiece('general', 0));
         board = placePiece(board, 7, 0, createPiece('captain', 1));
 
-        const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+        const { board: newBoard, deadPieces } = pieceMovement(
+            board,
+            [6, 0],
+            [7, 0],
+        );
 
-        expect(deadPieces).toEqual([expect.objectContaining({ name: 'captain', affiliation: 1 })]);
-        expect(newBoard[7][0]).toMatchObject({ name: 'general', affiliation: 0 });
+        expect(deadPieces).toEqual([
+            expect.objectContaining({ name: 'captain', affiliation: 1 }),
+        ]);
+        expect(newBoard[7][0]).toMatchObject({
+            name: 'general',
+            affiliation: 0,
+        });
         expect(newBoard[6][0]).toBeNull();
     });
 
@@ -31,10 +47,19 @@ describe('pieceMovement', () => {
         board = placePiece(board, 6, 0, createPiece('captain', 0));
         board = placePiece(board, 7, 0, createPiece('general', 1));
 
-        const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+        const { board: newBoard, deadPieces } = pieceMovement(
+            board,
+            [6, 0],
+            [7, 0],
+        );
 
-        expect(deadPieces).toEqual([expect.objectContaining({ name: 'captain', affiliation: 0 })]);
-        expect(newBoard[7][0]).toMatchObject({ name: 'general', affiliation: 1 });
+        expect(deadPieces).toEqual([
+            expect.objectContaining({ name: 'captain', affiliation: 0 }),
+        ]);
+        expect(newBoard[7][0]).toMatchObject({
+            name: 'general',
+            affiliation: 1,
+        });
         expect(newBoard[6][0]).toBeNull();
     });
 
@@ -43,7 +68,11 @@ describe('pieceMovement', () => {
         board = placePiece(board, 6, 0, createPiece('captain', 0));
         board = placePiece(board, 7, 0, createPiece('captain', 1));
 
-        const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+        const { board: newBoard, deadPieces } = pieceMovement(
+            board,
+            [6, 0],
+            [7, 0],
+        );
 
         expect(deadPieces).toHaveLength(2);
         expect(newBoard[7][0]).toBeNull();
@@ -56,7 +85,11 @@ describe('pieceMovement', () => {
             board = placePiece(board, 6, 0, createPiece('captain', 0));
             board = placePiece(board, 7, 0, createPiece('landmine', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0]);
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+            );
 
             expect(deadPieces).toHaveLength(2);
             expect(newBoard[7][0]).toBeNull();
@@ -68,15 +101,42 @@ describe('pieceMovement', () => {
             board = placePiece(board, 6, 0, createPiece('captain', 0));
             board = placePiece(board, 7, 0, createPiece('landmine', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
-                landminesSurvive: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    landminesSurvive: true,
+                },
+            );
 
             expect(deadPieces).toEqual([
                 expect.objectContaining({ name: 'captain', affiliation: 0 }),
             ]);
             expect(newBoard[6][0]).toBeNull();
-            expect(newBoard[7][0]).toMatchObject({ name: 'landmine', affiliation: 1 });
+            expect(newBoard[7][0]).toMatchObject({
+                name: 'landmine',
+                affiliation: 1,
+            });
+        });
+
+        test('on: a bomb attacking a landmine still destroys both', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 6, 0, createPiece('bomb', 0));
+            board = placePiece(board, 7, 0, createPiece('landmine', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    landminesSurvive: true,
+                },
+            );
+
+            expect(deadPieces).toHaveLength(2);
+            expect(newBoard[6][0]).toBeNull();
+            expect(newBoard[7][0]).toBeNull();
         });
 
         test('an Engineer always safely defuses a landmine regardless of the setting', () => {
@@ -84,14 +144,22 @@ describe('pieceMovement', () => {
             board = placePiece(board, 6, 0, createPiece('engineer', 0));
             board = placePiece(board, 7, 0, createPiece('landmine', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
-                landminesSurvive: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    landminesSurvive: true,
+                },
+            );
 
             expect(deadPieces).toEqual([
                 expect.objectContaining({ name: 'landmine', affiliation: 1 }),
             ]);
-            expect(newBoard[7][0]).toMatchObject({ name: 'engineer', affiliation: 0 });
+            expect(newBoard[7][0]).toMatchObject({
+                name: 'engineer',
+                affiliation: 0,
+            });
             expect(newBoard[6][0]).toBeNull();
         });
     });
@@ -102,9 +170,14 @@ describe('pieceMovement', () => {
             board = placePiece(board, 1, 1, createPiece('captain', 0));
             board = placePiece(board, 0, 1, createPiece('flag', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [1, 1], [0, 1], {
-                captureTheFlag: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [1, 1],
+                [0, 1],
+                {
+                    captureTheFlag: true,
+                },
+            );
 
             expect(deadPieces).toEqual([
                 expect.objectContaining({ name: 'flag', affiliation: 1 }),
@@ -123,14 +196,22 @@ describe('pieceMovement', () => {
             board = placePiece(board, 6, 0, carrier);
             board = placePiece(board, 7, 0, createPiece('captain', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
-                captureTheFlag: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    captureTheFlag: true,
+                },
+            );
 
             expect(deadPieces.some((p) => p.carryingFlag)).toBe(true);
             // carrier was affiliation 0, so the respawned flag belongs to
             // affiliation 1 (whoever originally owned it) at its home HQ (row 0)
-            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'flag',
+                affiliation: 1,
+            });
         });
 
         test('if the carrier loses a fight, the flag respawns at its home HQ', () => {
@@ -140,14 +221,26 @@ describe('pieceMovement', () => {
             board = placePiece(board, 6, 0, carrier);
             board = placePiece(board, 7, 0, createPiece('general', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
-                captureTheFlag: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    captureTheFlag: true,
+                },
+            );
 
             expect(deadPieces).toEqual([
-                expect.objectContaining({ name: 'captain', affiliation: 0, carryingFlag: true }),
+                expect.objectContaining({
+                    name: 'captain',
+                    affiliation: 0,
+                    carryingFlag: true,
+                }),
             ]);
-            expect(newBoard[0][1]).toMatchObject({ name: 'flag', affiliation: 1 });
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'flag',
+                affiliation: 1,
+            });
         });
 
         test('if both HQ cells are occupied, the flag respawns elsewhere in the home row instead of vanishing', () => {
@@ -168,9 +261,17 @@ describe('pieceMovement', () => {
 
             // HQ cells stay untouched; the flag lands in another empty
             // cell of the same home row instead
-            expect(newBoard[0][1]).toMatchObject({ name: 'landmine', affiliation: 1 });
-            expect(newBoard[0][3]).toMatchObject({ name: 'landmine', affiliation: 1 });
-            const flagCellsInRow = newBoard[0].filter((p) => p?.name === 'flag');
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'landmine',
+                affiliation: 1,
+            });
+            expect(newBoard[0][3]).toMatchObject({
+                name: 'landmine',
+                affiliation: 1,
+            });
+            const flagCellsInRow = newBoard[0].filter(
+                (p) => p?.name === 'flag',
+            );
             expect(flagCellsInRow).toHaveLength(1);
             expect(flagCellsInRow[0]).toMatchObject({ affiliation: 1 });
         });
@@ -186,16 +287,24 @@ describe('pieceMovement', () => {
             });
             board = placePiece(board, 7, 0, createPiece('general', 1));
 
-            const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [7, 0], {
-                captureTheFlag: true,
-            });
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [6, 0],
+                [7, 0],
+                {
+                    captureTheFlag: true,
+                },
+            );
 
             expect(deadPieces.some((p) => p.carryingFlag)).toBe(true);
             // home row is untouched (still all landmines); the flag drops
             // at [6, 0], the move's source square, which is always empty
             // after a death
             expect(newBoard[0].every((p) => p?.name === 'landmine')).toBe(true);
-            expect(newBoard[6][0]).toMatchObject({ name: 'flag', affiliation: 1 });
+            expect(newBoard[6][0]).toMatchObject({
+                name: 'flag',
+                affiliation: 1,
+            });
         });
 
         test('without captureTheFlag, a captured flag simply disappears (default behavior unchanged)', () => {
@@ -205,7 +314,10 @@ describe('pieceMovement', () => {
 
             const { board: newBoard } = pieceMovement(board, [1, 1], [0, 1]);
 
-            expect(newBoard[0][1]).toMatchObject({ name: 'captain', affiliation: 0 });
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'captain',
+                affiliation: 0,
+            });
             expect(newBoard[0][1]?.carryingFlag).toBeUndefined();
         });
     });
