@@ -192,6 +192,16 @@ async function hostPrepareGame(
     gid: string,
     gameConfig: GameConfigData | null,
 ) {
+    // only the host (always players[0] - see createGame) may start the
+    // game or set its rule config; the client-side "Room Full" button is
+    // already host-only UI, but that alone doesn't stop a socket from
+    // emitting this event directly
+    const myGame = await getGameById(gid);
+    const host = myGame?.players[0];
+    if (!host || !verifyOwnsSeat(this, gid, host)) {
+        return;
+    }
+
     const data = {
         mySocketId: this.id,
         roomId: gid,
