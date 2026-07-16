@@ -405,16 +405,22 @@ export const removeSpectator = async ({
     console.error('Game not found');
 };
 
-export const getMoveHistory = async (gid: string) => {
-    const myGame = await getGameById(gid);
+// each of these optionally accepts a game document the caller already
+// fetched, skipping the internal getGameById re-fetch - applyMove is a hot
+// path that used to trigger 5+ redundant re-fetches of the same document
+// per move (see gameplayService.ts's applyMove)
+type PreloadedGame = Awaited<ReturnType<typeof getGameById>>;
+
+export const getMoveHistory = async (gid: string, preloadedGame?: PreloadedGame) => {
+    const myGame = preloadedGame ?? (await getGameById(gid));
     if (myGame) {
         return myGame.moves;
     }
     console.error('Game not found');
 };
 
-export const getDeadPieces = async (gid: string) => {
-    const myGame = await getGameById(gid);
+export const getDeadPieces = async (gid: string, preloadedGame?: PreloadedGame) => {
+    const myGame = preloadedGame ?? (await getGameById(gid));
     if (myGame) {
         return myGame.deadPieces;
     }
@@ -427,16 +433,19 @@ export const getDeadPieces = async (gid: string) => {
  * @returns {boolean} indicates whether the player made a move during their turn
  * @see isPlayerTurn
  */
-export const isPlayerTurn = async ({
-    playerName,
-    gid,
-    turn,
-}: {
-    playerName: string;
-    gid: string;
-    turn: number;
-}) => {
-    const myGame = await getGameById(gid);
+export const isPlayerTurn = async (
+    {
+        playerName,
+        gid,
+        turn,
+    }: {
+        playerName: string;
+        gid: string;
+        turn: number;
+    },
+    preloadedGame?: PreloadedGame,
+) => {
+    const myGame = preloadedGame ?? (await getGameById(gid));
     /** assume the first matching game found is the only result, and that it is correct
      * assume that there are only two players, arrange by odd / even
      * */
@@ -448,14 +457,13 @@ export const isPlayerTurn = async ({
     return turn % 2 === playerId;
 };
 
-export const updateBoard = async (gid: string, board: any) => {
-    await updateGame(gid, { $set: { board } });
-};
+export const updateBoard = async (gid: string, board: any) =>
+    updateGame(gid, { $set: { board } });
 
 export const updateGame = async (
     gid: string,
     updateFields: Record<string, unknown>,
-) => await Game.findByIdAndUpdate(gid, updateFields);
+) => Game.findByIdAndUpdate(gid, updateFields, { new: true });
 
 /**
  * Pure win-check for the captureTheFlag rule variant, extracted from
@@ -517,8 +525,8 @@ export function winnerUnderCaptureTheFlag(myBoard: any): number {
     return -1;
 }
 
-export const winner = async (gid: string) => {
-    const myGame = await getGameById(gid);
+export const winner = async (gid: string, preloadedGame?: PreloadedGame) => {
+    const myGame = preloadedGame ?? (await getGameById(gid));
     if (!myGame) {
         return -1;
     }

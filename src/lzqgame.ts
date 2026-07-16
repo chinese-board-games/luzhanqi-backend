@@ -403,8 +403,8 @@ async function playerRejoinRoom(
     let winnerIndex: number | null = null;
     let gameStats = null;
     if (myGame.phase === 3 && boardComplete) {
-        winnerIndex = await winner(gameId);
-        gameStats = await getGameStats(gameId);
+        winnerIndex = await winner(gameId, myGame);
+        gameStats = await getGameStats(gameId, myGame);
     }
 
     this.emit('youHaveRejoinedTheRoom', {

@@ -5,8 +5,6 @@ import {
     getGameById,
     updateBoard,
     updateGame,
-    getMoveHistory,
-    getDeadPieces,
     isPlayerTurn,
     winner,
     sanitizeGameForClient,
@@ -180,9 +178,17 @@ export type GameStats = {
     lost: { name: string; count: number; order: number }[][];
 };
 
+// accepts an optional game document the caller already fetched, skipping
+// the internal getGameById re-fetch (see applyMove, a hot path that used to
+// trigger 5+ redundant re-fetches of the same document per move)
+type PreloadedGame = Awaited<ReturnType<typeof getGameById>>;
+
 // returns per-player remaining/lost piece counts, or null if the game/board isn't found
-export async function getGameStats(gid: string): Promise<GameStats | null> {
-    const myGame = await getGameById(gid);
+export async function getGameStats(
+    gid: string,
+    preloadedGame?: PreloadedGame,
+): Promise<GameStats | null> {
+    const myGame = preloadedGame ?? (await getGameById(gid));
     if (!myGame?.board) {
         console.error('Game or game board not found.');
         return null;
@@ -260,14 +266,19 @@ export async function applyMove(
     turn: number,
     pendingMove: { source: Coord; target: Coord },
 ): Promise<MoveResult> {
-    const isTurn = await isPlayerTurn({ playerName, gid, turn });
-    if (!isTurn) {
-        return { ok: false, reason: 'It is not your turn.' };
-    }
-
+    // fetched once and threaded through every check/write below instead of
+    // each one independently re-fetching the same document - this used to
+    // be 7 DB reads + 2-3 writes per move (isPlayerTurn, this fetch,
+    // getMoveHistory, getDeadPieces, winner, and getGameStats each did
+    // their own getGameById on top of this one)
     const myGame = await getGameById(gid);
     if (!myGame) {
         return { ok: false, reason: 'Game not found.' };
+    }
+
+    const isTurn = await isPlayerTurn({ playerName, gid, turn }, myGame);
+    if (!isTurn) {
+        return { ok: false, reason: 'It is not your turn.' };
     }
 
     const myBoard = myGame.board;
@@ -286,24 +297,24 @@ export async function applyMove(
     }
 
     const newTurn = turn + 1;
-    await updateBoard(gid, newBoard);
     printBoard(newBoard);
 
-    const moveHistory = await getMoveHistory(gid);
-    const deadPieceHistory = await getDeadPieces(gid);
-    await updateGame(gid, {
+    // board, turn, moves, and deadPieces all commit together as one write
+    // (they were two separate writes before); updateGame now returns the
+    // post-write document ({ new: true }), so this doubles as the "read
+    // back the committed state" step the old code did with a third fetch
+    const updatedGame = await updateGame(gid, {
+        board: newBoard,
         turn: newTurn,
-        moves: [...(moveHistory || []), pendingMove],
-        deadPieces: [...(deadPieceHistory || []), ...deadPieces],
+        moves: [...(myGame.moves || []), pendingMove],
+        deadPieces: [...(myGame.deadPieces || []), ...deadPieces],
     });
-
-    const updatedGame = await getGameById(gid);
     if (!updatedGame) {
         return { ok: false, reason: 'Game not found after update.' };
     }
 
-    const winnerIndex = await winner(gid);
-    const gameStats = await getGameStats(gid);
+    const winnerIndex = await winner(gid, updatedGame);
+    const gameStats = await getGameStats(gid, updatedGame);
     if (winnerIndex !== -1) {
         await updateGame(gid, { winnerId: uid || 'anonymous', phase: 3 });
     }
