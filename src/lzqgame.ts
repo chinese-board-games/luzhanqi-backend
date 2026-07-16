@@ -340,9 +340,6 @@ async function playerRejoinRoom(
         `Player ${playerName || '(unknown)'} attempting to rejoin room: ${gameId} on socket id: ${this.id}`,
     );
 
-    const uid = await resolveUid(this, idToken);
-    if (uid === TOKEN_INVALID) return;
-
     const myGame = await getGameById(gameId);
     if (!myGame) {
         this.emit('rejoinFailed', { gameId, reason: 'game-not-found' });
@@ -352,7 +349,10 @@ async function playerRejoinRoom(
     // proof of seat ownership is either the token issued to this device at
     // join time, or - for a device that's never seen this game before -
     // a Firebase-verified uid matching the one recorded for a seat when it
-    // joined (never the raw client-asserted uid)
+    // joined (never the raw client-asserted uid). The session-token path is
+    // tried first and doesn't touch idToken at all, so a transient token-
+    // verification hiccup never blocks a rejoin that would have succeeded
+    // via the session token alone.
     let resolvedPlayerName: string | undefined;
     if (
         playerName &&
@@ -361,10 +361,14 @@ async function playerRejoinRoom(
         myGame.playerToTokenMap.get(playerName) === token
     ) {
         resolvedPlayerName = playerName;
-    } else if (uid) {
-        resolvedPlayerName = myGame.players.find(
-            (p) => myGame.playerToUidMap.get(p) === uid,
-        );
+    } else {
+        const uid = await resolveUid(this, idToken);
+        if (uid === TOKEN_INVALID) return;
+        if (uid) {
+            resolvedPlayerName = myGame.players.find(
+                (p) => myGame.playerToUidMap.get(p) === uid,
+            );
+        }
     }
 
     if (!resolvedPlayerName) {
