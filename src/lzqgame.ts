@@ -32,9 +32,12 @@ import { Board, Piece } from './types';
 let io: Server;
 let gameSocket: Socket;
 
-// tracks which (gid, playerName) seat a live socket currently occupies,
-// purely so we can announce a disconnect to the room - reconnection itself
-// is handled by the DB-backed token, not this in-memory registry.
+// tracks which (gid, playerName) seat a live socket currently occupies - two
+// jobs: announcing a disconnect to the room, and (see verifyOwnsSeat) proof
+// that a socket claiming to act as some playerName actually is that seat,
+// so one connected client can't submit moves/forfeit/setup as someone else
+// just by naming them. Reconnection itself is handled by the DB-backed
+// token, not this in-memory registry.
 const socketSeatRegistry = new Map<string, { gid: string; playerName: string }>();
 
 export const initGame = (sio: Server, socket: Socket) => {
@@ -92,6 +95,26 @@ async function resolveUid(
         ]);
         return TOKEN_INVALID;
     }
+}
+
+/**
+ * Verifies the calling socket actually occupies the seat it claims to act
+ * as (set by hostCreateNewGame/playerJoinRoom/playerRejoinRoom - see
+ * socketSeatRegistry), so one connected client can't submit a move,
+ * forfeit, or setup as a different player just by naming them in the
+ * payload. Emits an 'error' event and returns false on mismatch, so
+ * callers can bail out early with `if (!verifyOwnsSeat(...)) return;`.
+ * @see verifyOwnsSeat
+ */
+function verifyOwnsSeat(socket: Socket, gid: string, playerName: string): boolean {
+    const seat = socketSeatRegistry.get(socket.id);
+    if (seat?.gid === gid && seat?.playerName === playerName) {
+        return true;
+    }
+    socket.emit('error', [
+        `You do not have permission to act as ${playerName} in this game.`,
+    ]);
+    return false;
 }
 
 /* *******************************
@@ -763,6 +786,8 @@ async function playerInitialBoard(
     },
 ) {
     console.info(`playerInitialBoard from ${playerName} on socket ${this.id}`);
+    if (!verifyOwnsSeat(this, gid, playerName)) return;
+
     const result = await submitInitialBoard(gid, playerName, myPositions);
     if (!result.ok) {
         this.emit('error', result.errors || [result.reason]);
@@ -790,6 +815,8 @@ async function pieceSelection(
     },
 ) {
     console.info(`pieceSelection from ${playerName} on socket ${this.id}`);
+    if (!verifyOwnsSeat(this, gid, playerName)) return;
+
     const myGame = await getGameById(gid);
     if (!myGame) {
         console.error('Game not found.');
@@ -823,6 +850,8 @@ async function playerMakeMove(
         };
     },
 ) {
+    if (!verifyOwnsSeat(this, gid, playerName)) return;
+
     const uid = await resolveUid(this, idToken);
     if (uid === TOKEN_INVALID) return;
 
@@ -945,6 +974,8 @@ async function playerForfeit(
     this: Socket,
     { playerName, room: gid }: { playerName: string; room: string },
 ) {
+    if (!verifyOwnsSeat(this, gid, playerName)) return;
+
     const myGame = await getGameById(gid);
     if (!myGame) {
         console.error('Game not found.');
