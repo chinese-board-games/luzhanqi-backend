@@ -313,12 +313,17 @@ async function playerRejoinRoom(
     let board = null;
     let deadPieces: unknown[] = [];
     if (boardComplete) {
-        const view = myGame.config.fogOfWar
-            ? emplaceBoardFog(
-                  myGame as unknown as { board: Piece[][]; deadPieces: Piece[] },
-                  playerIndex,
-              )
-            : myGame;
+        // once the game has ended (phase 3), reveal the full board on
+        // rejoin instead of continuing to fog it - matches the live
+        // in-progress endGame broadcast, which already sends the unfogged
+        // finalGame (see broadcastGameState)
+        const view =
+            myGame.config.fogOfWar && myGame.phase !== 3
+                ? emplaceBoardFog(
+                      myGame as unknown as { board: Piece[][]; deadPieces: Piece[] },
+                      playerIndex,
+                  )
+                : myGame;
         board = view.board;
         deadPieces = view.deadPieces;
     }
@@ -896,7 +901,16 @@ async function playerForfeit(
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
-    io.sockets.in(gid).emit('endGame', { winnerIndex, gameStats });
+    // unfogged, same as the other endGame emits - the client relies on
+    // finalGame to reveal the board once the game is over (see
+    // GameContext.jsx's endGame handler); the board itself is unaffected by
+    // a forfeit, so myGame (fetched before the phase update above) is still
+    // accurate
+    io.sockets.in(gid).emit('endGame', {
+        winnerIndex,
+        gameStats,
+        finalGame: sanitizeGameForClient(myGame),
+    });
 }
 
 /**

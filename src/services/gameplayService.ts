@@ -416,8 +416,9 @@ export async function submitAiInitialBoard(gid: string): Promise<SetupResult> {
 
 /**
  * Emits a game-state event to every connected player (fogged per-player if
- * the game has fog of war enabled) and spectator (always unfogged), always
- * sanitized to strip internal identity maps. Skips the AI's sentinel seat.
+ * the game has fog of war enabled and the game is still in progress) and
+ * spectator (always unfogged), always sanitized to strip internal identity
+ * maps. Skips the AI's sentinel seat.
  * @see broadcastGameState
  */
 export async function broadcastGameState(
@@ -425,6 +426,10 @@ export async function broadcastGameState(
     myGame: IGame,
     eventName: string,
 ) {
+    // once the game has ended (phase 3), fog no longer serves its purpose of
+    // hiding in-progress strategy - reveal the full board so players can see
+    // what the enemy's pieces actually were
+    const applyFog = myGame.config.fogOfWar && myGame.phase !== 3;
     myGame.playerToSocketIdMap.forEach(
         (socketId: string, instPlayerName: string) => {
             if (socketId === AI_SOCKET_SENTINEL) {
@@ -434,7 +439,7 @@ export async function broadcastGameState(
             io.to(socketId).emit(
                 eventName,
                 sanitizeGameForClient(
-                    myGame.config.fogOfWar
+                    applyFog
                         ? emplaceBoardFog(
                               myGame as unknown as {
                                   board: FoggablePiece[][];
