@@ -18,30 +18,24 @@ export const emptyBoard = (): Board => {
     return board;
 };
 
-// function that prints the board in a readable format
+// function that prints the board in a readable format. Iterates the
+// board's actual dimensions rather than assuming a full 12x5 grid, since
+// a half-submitted setup board (see gameplayService.submitInitialBoard)
+// only has 6 rows until both players have placed their pieces.
 export const printBoard = (board: Board): void => {
-    for (let i = 0; i < 12; i++) {
+    board.forEach((boardRow, i) => {
         let row = '';
         // after the sixth row, add the frontier
         if (i === 6) {
             row += ' .... [/\\/\\] .... [/\\/\\] .... \n';
         }
-        for (let j = 0; j < 5; j++) {
+        boardRow.forEach((piece, j) => {
+            // first four letters of the piece name, capitalized, or '....' if null
+            const label = piece?.name.slice(0, 4).toUpperCase() || '----';
             // if the row is a camp, surround piece name with brackets
             // otherwise, add a space on either side
-            if (isCamp(i, j)) {
-                // first four letters of the piece name, capitalized, or '....' if null
-                row +=
-                    '[' +
-                    (board[i][j]?.name.slice(0, 4).toUpperCase() || '----') +
-                    ']';
-            } else {
-                row +=
-                    ' ' +
-                    (board[i][j]?.name.slice(0, 4).toUpperCase() || '----') +
-                    ' ';
-            }
-        }
+            row += isCamp(i, j) ? `[${label}]` : ` ${label} `;
+        });
         console.info(row);
-    }
+    });
 };
