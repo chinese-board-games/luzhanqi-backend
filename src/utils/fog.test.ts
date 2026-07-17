@@ -4,8 +4,8 @@ import { createPiece, placePiece } from './piece';
 import { Piece } from '../types';
 
 describe('emplaceBoardFog', () => {
-    // a null board (before both setup halves are merged) used to reach
-    // `.some()` and crash the process - see GH issue #83
+    // the board is null before both setup halves are merged, and
+    // emplaceBoardFog must handle that without throwing
     test('does not throw when the board is null, and returns it unchanged', () => {
         const game = { board: null, deadPieces: [] };
         expect(() => emplaceBoardFog(game, 0)).not.toThrow();

@@ -3,9 +3,8 @@ import { GameStats } from './services/gameplayService';
 
 describe('formatGameStats', () => {
     // console.log/info's default inspection depth is 2 - gameStats is 3
-    // levels deep (remain/lost -> per-player array -> piece-count object),
-    // so logging it directly collapsed every piece entry to "[Object]"
-    // instead of printing its contents (GH issue #85)
+    // levels deep (remain/lost -> per-player array -> piece-count object) -
+    // so formatGameStats must use depth: null to print every level in full
     test('renders nested piece-count objects instead of collapsing them to [Object]', () => {
         const gameStats: GameStats = {
             remain: [

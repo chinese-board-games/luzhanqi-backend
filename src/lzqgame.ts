@@ -42,10 +42,9 @@ let gameSocket: Socket;
 // token, not this in-memory registry.
 const socketSeatRegistry = new Map<string, { gid: string; playerName: string }>();
 
-// console.log/info's default inspection depth is 2, so logging gameStats
-// directly (an array of per-player arrays of piece-count objects, 3 levels
-// deep) collapses every piece entry down to the useless placeholder
-// "[Object]" instead of printing its contents (see GH issue #85).
+// console.log/info's default inspection depth is 2, but gameStats is an
+// array of per-player arrays of piece-count objects - 3 levels deep - so
+// this needs depth: null to print every level in full.
 export const formatGameStats = (gameStats: GameStats | null) =>
     inspect(gameStats, { depth: null });
 
