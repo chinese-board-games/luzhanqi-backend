@@ -78,8 +78,8 @@ const GameSchema = new Schema<IGame, GameModelType>(
         joinCode: { type: String, unique: true, sparse: true },
         players: [],
         // every call site does `.get()`/`.set()` on these unconditionally,
-        // so each must always resolve to a real Map, even for documents
-        // that predate one of these fields existing in the schema
+        // so each must always resolve to a real Map - a stored document
+        // can simply lack one of these fields
         playerToUidMap: { type: Map, default: () => new Map() },
         playerToSocketIdMap: { type: Map, default: () => new Map() },
         playerToTokenMap: { type: Map, default: () => new Map() },
