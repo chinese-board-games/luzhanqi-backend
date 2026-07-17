@@ -13,9 +13,20 @@ import { Piece } from '../types';
  * @see emplaceBoardFog
  */
 export const emplaceBoardFog = (
-    game: { board: Piece[][]; deadPieces: Piece[] },
+    game: { board: Piece[][] | null; deadPieces: Piece[] },
     playerIndex: number,
 ) => {
+    // the board is null before both halves of setup have been merged. Most
+    // callers already guard against this before calling in, but
+    // routes/games/index.ts's GET /:gameId does not - a verified
+    // participant hitting it before setup completes reached `.some()`
+    // below and crashed the process (GH issue #83). Guarding here instead
+    // of only at each call site means the function is safe regardless of
+    // whether a caller remembers to check first.
+    if (!game.board) {
+        return cloneDeep(game);
+    }
+
     // copy the board because we are diverging them
     const myBoard = cloneDeep(game.board);
     const enemyHasFieldMarshall = myBoard.some((row: Piece[]) =>
