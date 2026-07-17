@@ -1,3 +1,4 @@
+import { inspect } from 'util';
 import type { Server, Socket } from 'socket.io';
 import Game, { GameConfigData } from './models/Game';
 import {
@@ -23,6 +24,7 @@ import {
     submitAiInitialBoard,
     broadcastGameState,
     getGameStats,
+    GameStats,
 } from './services/gameplayService';
 import { getSuccessors, emplaceBoardFog, verifyIdToken } from './utils';
 import { chooseAiMove } from './utils/aiPlayer';
@@ -39,6 +41,13 @@ let gameSocket: Socket;
 // just by naming them. Reconnection itself is handled by the DB-backed
 // token, not this in-memory registry.
 const socketSeatRegistry = new Map<string, { gid: string; playerName: string }>();
+
+// console.log/info's default inspection depth is 2, so logging gameStats
+// directly (an array of per-player arrays of piece-count objects, 3 levels
+// deep) collapses every piece entry down to the useless placeholder
+// "[Object]" instead of printing its contents (see GH issue #85).
+export const formatGameStats = (gameStats: GameStats | null) =>
+    inspect(gameStats, { depth: null });
 
 export const initGame = (sio: Server, socket: Socket) => {
     io = sio;
@@ -880,7 +889,7 @@ async function playerMakeMove(
     broadcastFieldMarshallDown(gid, result.fieldMarshallDown);
 
     if (result.winnerIndex !== -1) {
-        console.info('game ended from victory', result.gameStats);
+        console.info('game ended from victory', formatGameStats(result.gameStats));
         io.sockets.in(gid).emit('endGame', {
             winnerIndex: result.winnerIndex,
             gameStats: result.gameStats,
@@ -975,7 +984,7 @@ async function runAiTurn(gid: string, turn: number) {
     await broadcastGameState(io, result.game, 'playerMadeMove');
     broadcastFieldMarshallDown(gid, result.fieldMarshallDown);
     if (result.winnerIndex !== -1) {
-        console.info('game ended from victory (AI)', result.gameStats);
+        console.info('game ended from victory (AI)', formatGameStats(result.gameStats));
         io.sockets.in(gid).emit('endGame', {
             winnerIndex: result.winnerIndex,
             gameStats: result.gameStats,
