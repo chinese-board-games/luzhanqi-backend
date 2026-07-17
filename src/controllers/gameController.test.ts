@@ -2,6 +2,7 @@ import {
     sanitizeGameForClient,
     generateToken,
     generateJoinCode,
+    winner,
     winnerUnderCaptureTheFlag,
 } from './gameController';
 import { pieceMovement } from '../services/gameplayService';
@@ -161,5 +162,47 @@ describe('winnerUnderCaptureTheFlag', () => {
         });
 
         expect(winnerUnderCaptureTheFlag(newBoard)).toBe(-1);
+    });
+});
+
+describe('winner (default, non-captureTheFlag rules)', () => {
+    // host (affiliation 0) occupies the bottom half of the merged board
+    // (HQ at row 11); the guest (affiliation 1) occupies the top half
+    // (HQ at row 0) - see submitInitialBoard's merge order. A flag can
+    // legally sit on any row of its owner's half, not just the row
+    // nearest that half's own edge of the board - these boards place
+    // filler pieces in the rows ahead of each flag so a scan actually
+    // encounters other pieces first, the same as a real, mostly-full
+    // game board would.
+    const asPreloadedGame = (board: unknown) => ({ board, config: {} } as any);
+
+    test('no winner while both flags are present, several rows deep in their own half', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 0, 0, createPiece('captain', 1));
+        board = placePiece(board, 1, 0, createPiece('captain', 1));
+        board = placePiece(board, 3, 3, createPiece('flag', 1));
+        board = placePiece(board, 6, 0, createPiece('captain', 0));
+        board = placePiece(board, 7, 0, createPiece('captain', 0));
+        board = placePiece(board, 8, 1, createPiece('flag', 0));
+
+        expect(await winner('unused', asPreloadedGame(board))).toBe(-1);
+    });
+
+    test('host wins when only the guest half is missing its flag', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 0, 0, createPiece('captain', 1));
+        board = placePiece(board, 1, 0, createPiece('captain', 1));
+        board = placePiece(board, 8, 1, createPiece('flag', 0));
+
+        expect(await winner('unused', asPreloadedGame(board))).toBe(0);
+    });
+
+    test('guest wins when only the host half is missing its flag', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 3, 3, createPiece('flag', 1));
+        board = placePiece(board, 6, 0, createPiece('captain', 0));
+        board = placePiece(board, 7, 0, createPiece('captain', 0));
+
+        expect(await winner('unused', asPreloadedGame(board))).toBe(1);
     });
 });

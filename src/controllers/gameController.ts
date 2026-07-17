@@ -536,26 +536,22 @@ export const winner = async (gid: string, preloadedGame?: PreloadedGame) => {
         return winnerUnderCaptureTheFlag(myBoard);
     }
 
-    let flags = 0;
-    for (let rowI = 0; rowI < myBoard.length; rowI += 1) {
-        const row = myBoard[rowI];
-        for (let colI = 0; colI < row.length; colI += 1) {
-            const piece = row[colI];
-            if (piece === null) {
-                // eslint-disable-next-line no-continue
-                continue;
-            }
-            if (piece.name === 'flag') {
-                flags += 1;
-            }
-            if (rowI > 0 && flags < 1) {
-                // top half loses (host won)
-                console.info('top half loses');
-                return 0;
+    // a flag can legally sit on any row of its owner's half, so this counts
+    // by the piece's own affiliation rather than by scan position
+    const flagsPresent = [false, false];
+    for (const row of myBoard) {
+        for (const piece of row) {
+            if (piece?.name === 'flag') {
+                flagsPresent[piece.affiliation] = true;
             }
         }
     }
-    if (flags < 2) {
+    if (!flagsPresent[1]) {
+        // top half loses (host won)
+        console.info('top half loses');
+        return 0;
+    }
+    if (!flagsPresent[0]) {
         // bottom half loses (guest won)
         console.info('bottom half loses');
         return 1;
