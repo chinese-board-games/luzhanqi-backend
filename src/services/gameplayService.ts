@@ -179,8 +179,8 @@ export type GameStats = {
 };
 
 // accepts an optional game document the caller already fetched, skipping
-// the internal getGameById re-fetch (see applyMove, a hot path that used to
-// trigger 5+ redundant re-fetches of the same document per move)
+// the internal getGameById re-fetch (see applyMove, a hot path where every
+// independent re-fetch of the same document adds real DB round-trip cost)
 type PreloadedGame = Awaited<ReturnType<typeof getGameById>>;
 
 // returns per-player remaining/lost piece counts, or null if the game/board isn't found
@@ -266,11 +266,10 @@ export async function applyMove(
     turn: number,
     pendingMove: { source: Coord; target: Coord },
 ): Promise<MoveResult> {
-    // fetched once and threaded through every check/write below instead of
-    // each one independently re-fetching the same document - this used to
-    // be 7 DB reads + 2-3 writes per move (isPlayerTurn, this fetch,
-    // getMoveHistory, getDeadPieces, winner, and getGameStats each did
-    // their own getGameById on top of this one)
+    // fetched once here and threaded through every check/write below -
+    // isPlayerTurn, getMoveHistory, getDeadPieces, winner, and
+    // getGameStats all take this same document, so a single move costs
+    // one read here plus the writes below
     const myGame = await getGameById(gid);
     if (!myGame) {
         return { ok: false, reason: 'Game not found.' };
@@ -299,10 +298,9 @@ export async function applyMove(
     const newTurn = turn + 1;
     printBoard(newBoard);
 
-    // board, turn, moves, and deadPieces all commit together as one write
-    // (they were two separate writes before); updateGame now returns the
-    // post-write document ({ new: true }), so this doubles as the "read
-    // back the committed state" step the old code did with a third fetch
+    // board, turn, moves, and deadPieces all commit together as one write;
+    // updateGame returns the post-write document ({ new: true }), so this
+    // also serves as the read-back of the committed state
     const updatedGame = await updateGame(gid, {
         board: newBoard,
         turn: newTurn,

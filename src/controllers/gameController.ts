@@ -407,8 +407,8 @@ export const removeSpectator = async ({
 
 // each of these optionally accepts a game document the caller already
 // fetched, skipping the internal getGameById re-fetch - applyMove is a hot
-// path that used to trigger 5+ redundant re-fetches of the same document
-// per move (see gameplayService.ts's applyMove)
+// path where every independent re-fetch of the same document adds real DB
+// round-trip cost (see gameplayService.ts's applyMove)
 type PreloadedGame = Awaited<ReturnType<typeof getGameById>>;
 
 export const getMoveHistory = async (gid: string, preloadedGame?: PreloadedGame) => {
