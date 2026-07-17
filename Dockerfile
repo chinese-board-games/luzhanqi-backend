@@ -1,5 +1,5 @@
 # Base image used 
-FROM node:20.9.0-alpine
+FROM node:24.15.0-alpine
 
 WORKDIR /usr/app
 COPY ./ /usr/app
