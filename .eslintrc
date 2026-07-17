@@ -1,9 +1,8 @@
 {
-    "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
+    "extends": ["eslint:recommended", "prettier"],
     "rules": {
         "no-param-reassign": 0,
-        "no-unused-vars": "off",
-        "@typescript-eslint/no-unused-vars": ["off"]
+        "no-unused-vars": "off"
     },
     "parserOptions": {
         "ecmaVersion": "latest"
@@ -13,7 +12,5 @@
         "node": true,
         "jest": true
     },
-    "parser": "@typescript-eslint/parser",
-    "plugins": ["@typescript-eslint"],
     "root": true
 }
