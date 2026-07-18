@@ -33,7 +33,7 @@
         "debug": "~2.6.9",
         "dotenv": "^17.4.2",
         "express": "^4.16.4",
-        "firebase-admin": "^11.4.1",
+        "firebase-admin": "^14.2.0",
         "lodash": "^4.17.21",
         "lodash.isequal": "^4.5.0",
         "mongodb": "^3.6.3",
