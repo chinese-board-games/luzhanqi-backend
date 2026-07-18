@@ -321,4 +321,17 @@ describe('pieceMovement', () => {
             expect(newBoard[0][1]?.carryingFlag).toBeUndefined();
         });
     });
+
+    test('an out-of-range coordinate is a no-op, not a thrown error', () => {
+        let board = emptyBoard();
+        board = placePiece(board, 6, 0, createPiece('engineer', 0));
+
+        expect(() => pieceMovement(board, [6, 0], [12, 0])).not.toThrow();
+        expect(() => pieceMovement(board, [-1, 0], [6, 0])).not.toThrow();
+        expect(() => pieceMovement(board, [6, 0], [6, 5])).not.toThrow();
+
+        const { board: newBoard, deadPieces } = pieceMovement(board, [6, 0], [12, 0]);
+        expect(newBoard).toEqual(board);
+        expect(deadPieces).toEqual([]);
+    });
 });

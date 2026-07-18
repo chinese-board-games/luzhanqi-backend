@@ -9,7 +9,14 @@ import {
     winner,
     sanitizeGameForClient,
 } from '../controllers/gameController';
-import { pieces, validateSetup, printBoard, emplaceBoardFog } from '../utils';
+import {
+    pieces,
+    validateSetup,
+    printBoard,
+    emplaceBoardFog,
+    isValidRow,
+    isValidCol,
+} from '../utils';
 import { chooseAiExampleHalfBoard } from '../utils/exampleBoards';
 import { AI_PLAYER_NAME, AI_SOCKET_SENTINEL } from '../utils/aiConstants';
 import { Board } from '../utils/board';
@@ -70,6 +77,18 @@ export function pieceMovement(
     const deadPieces: Piece[] = [];
 
     if (!source.length || !target.length) {
+        return { board, deadPieces };
+    }
+
+    // an out-of-range coordinate has no tile to read - every caller of
+    // pieceMovement (a real move, the AI, a test) works with in-bounds
+    // coordinates already, so this only guards a malformed payload
+    if (
+        !isValidRow(source[0]) ||
+        !isValidCol(source[1]) ||
+        !isValidRow(target[0]) ||
+        !isValidCol(target[1])
+    ) {
         return { board, deadPieces };
     }
 
