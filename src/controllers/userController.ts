@@ -58,7 +58,7 @@ export const removeGame = async (uid: string, gameId: string) => {
     const myUser = await getUser(uid);
     if (myUser) {
         console.info(`Removing game ${typeof gameId} ${gameId} from ${uid}`);
-        if (myUser.games.includes(uid)) {
+        if (myUser.games.includes(gameId)) {
             myUser.games = myUser.games.filter((game) => game !== gameId);
             await myUser.save();
         }
@@ -87,22 +87,6 @@ export const unarchiveGame = async (uid: string, gameId: string) => {
         myUser.archivedGames = myUser.archivedGames.filter((game) => game !== gameId);
         await myUser.save();
         return myUser;
-    }
-    console.error('User not found');
-};
-
-export const getGames = async (uid: string) => {
-    const myUser = await getUser(uid);
-    if (myUser) {
-        return myUser.games;
-    }
-    console.error('User not found');
-};
-
-export const getRank = async (uid: string) => {
-    const myUser = await getUser(uid);
-    if (myUser) {
-        return myUser.rank;
     }
     console.error('User not found');
 };
