@@ -10,8 +10,6 @@ import {
     removeGame,
     archiveGame,
     unarchiveGame,
-    getGames,
-    getRank,
     setRank,
 } from '../../controllers/userController';
 import { requireAuth } from '../../middleware/auth';
@@ -64,8 +62,13 @@ user.post('/:userId/games/:gameId', async (req, res) => {
         res.status(404).send('User not found');
     }
 });
-user.delete('/:userId/games/:gameId', (req, res) => {
-    removeGame(req.params.userId, req.params.gameId);
+user.delete('/:userId/games/:gameId', async (req, res) => {
+    const myUser = await removeGame(req.params.userId, req.params.gameId);
+    if (myUser) {
+        res.status(200).send(myUser);
+    } else {
+        res.status(404).send('User not found');
+    }
 });
 user.post('/:userId/games/:gameId/archive', async (req, res) => {
     const myUser = await archiveGame(req.params.userId, req.params.gameId);
@@ -83,10 +86,29 @@ user.delete('/:userId/games/:gameId/archive', async (req, res) => {
         res.status(404).send('User not found');
     }
 });
-user.get('/:userId/games', getGames);
-user.get('/:userId/rank', getRank);
-user.put('/:userId/rank', (req, res) => {
-    setRank(req.params.userId, req.body.rank);
+user.get('/:userId/games', async (req, res) => {
+    const myUser = await getUser(req.params.userId);
+    if (myUser) {
+        res.status(200).send(myUser.games);
+    } else {
+        res.status(404).send('User not found');
+    }
+});
+user.get('/:userId/rank', async (req, res) => {
+    const myUser = await getUser(req.params.userId);
+    if (myUser) {
+        res.status(200).send({ rank: myUser.rank });
+    } else {
+        res.status(404).send('User not found');
+    }
+});
+user.put('/:userId/rank', async (req, res) => {
+    const myUser = await setRank(req.params.userId, req.body.rank);
+    if (myUser) {
+        res.status(200).send(myUser);
+    } else {
+        res.status(404).send('User not found');
+    }
 });
 
 export default user;
