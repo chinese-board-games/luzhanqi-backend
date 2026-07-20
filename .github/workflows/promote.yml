@@ -1,0 +1,70 @@
+name: Promote to production
+
+# main is the staging trigger - Render auto-deploys luzhanqi-backend-staging
+# on every push here. This workflow waits for that deploy to go live, smoke
+# tests it, and only then fast-forwards `production` (the prod trigger) to
+# match - so prod only ever gets a commit that staging has already proven
+# out. See the pipeline plan for the full rationale.
+on:
+  push:
+    branches: [main]
+
+env:
+  STAGING_SERVICE_ID: srv-d9akgnlaeets73boftdg
+  STAGING_URL: https://luzhanqi-backend-staging.onrender.com
+
+jobs:
+  wait-and-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for this commit's staging deploy to go live
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          SHA="${{ github.sha }}"
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$STAGING_SERVICE_ID/deploys?limit=10" \
+              | jq -r --arg sha "$SHA" '[.[] | select(.commit.id == $sha)][0].status // "not-found"')
+            echo "Deploy status for $SHA: $STATUS"
+            if [ "$STATUS" = "live" ]; then
+              exit 0
+            fi
+            case "$STATUS" in
+              build_failed|update_failed|canceled|deactivated)
+                echo "Staging deploy did not succeed (status: $STATUS)."
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for staging deploy to go live."
+          exit 1
+
+      - name: Smoke test staging
+        run: |
+          health_code=$(curl -s -o /dev/null -w '%{http_code}' "$STAGING_URL/health")
+          if [ "$health_code" != "200" ]; then
+            echo "GET /health returned $health_code, expected 200"
+            exit 1
+          fi
+
+          game_code=$(curl -s -o /dev/null -w '%{http_code}' "$STAGING_URL/games/000000000000000000000000")
+          if [ "$game_code" != "404" ]; then
+            echo "GET /games/<fake id> returned $game_code, expected 404"
+            exit 1
+          fi
+
+          echo "Staging smoke tests passed."
+
+  promote:
+    needs: wait-and-smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward production to this commit
+        run: git push origin HEAD:production

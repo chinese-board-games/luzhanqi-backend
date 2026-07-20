@@ -28,6 +28,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
+
+// used by CI/CD promotion checks and Render's own health checks - reports
+// 503 while Mongo is unreachable rather than a false-positive 200, since a
+// disconnected DB makes every real route unusable anyway
+app.get('/health', (_req, res) => {
+    const mongoConnected = mongoose.connection.readyState === 1;
+    res.status(mongoConnected ? 200 : 503).send({
+        status: mongoConnected ? 'ok' : 'degraded',
+        mongo: mongoConnected ? 'connected' : 'disconnected',
+    });
+});
+
 app.use('/user', user);
 app.use('/games', game);
 

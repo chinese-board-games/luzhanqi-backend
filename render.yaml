@@ -3,8 +3,12 @@ services:
     name: luzhanqi-backend
     runtime: docker
     plan: free
-    branch: main
+    # prod deploys only from `production`, which the promote.yml workflow
+    # fast-forwards from `main` once staging passes its smoke test - never
+    # push directly to this branch
+    branch: production
     autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,8 +19,10 @@ services:
     name: luzhanqi-backend-staging
     runtime: docker
     plan: free
+    # staging deploys every merge to main - see promote.yml
     branch: main
     autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
