@@ -25,7 +25,25 @@ EOF
 
 Install docker and docker-compose. Then run
 
+Optionally, if you need to test real (non-anonymous) sign-in locally, also
+add `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+`FIREBASE_PRIVATE_KEY_B64` (base64-encoded service account private key) to
+`.env` — ask a team member for a service account key. Without these,
+anonymous play works fine but any request carrying a real auth token fails.
+
 ## Starting the server
 
 `git clone` to copy repository files into your local.  
-`docker-compose up``
+`docker-compose up`
+
+## Deployment
+
+- **Production**: https://luzhanqi-backend.onrender.com (Render, deploys
+  from the `production` branch)
+- **Staging**: https://luzhanqi-backend-staging.onrender.com (Render,
+  deploys from `main`)
+
+Merging a PR into `main` deploys to staging, then a GitHub Actions workflow
+smoke-tests it and — if it passes — promotes it to production
+automatically. See `CONTRIBUTORS.md` for the full flow (including a
+diagram) and the contribution workflow.

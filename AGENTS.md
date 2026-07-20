@@ -11,10 +11,12 @@ socket.io for realtime gameplay and MongoDB (Mongoose) for persistence.
 - `npm test` — Jest (`NODE_ENV=test jest`); tests are colocated as `*.test.ts` next to the source they cover
 - `docker compose up` — starts MongoDB + the app together (bind-mounts the repo, runs `npm run dev` inside the container); requires a `.env` file (see README.md for the template)
 
-Node 20.9.0. A pre-commit hook (husky + lint-staged) runs `eslint --fix` on
+Node 24.15.0. A pre-commit hook (husky + lint-staged) runs `eslint --fix` on
 `*.js` and `tsc-files --noEmit` (type-check only, no auto-fix) on `**/*.ts`.
-There is no CI configured for this repo — `tsc --noEmit` and `npm test` are
-the verification surface; DB-dependent changes additionally need a live
+CI (`.github/workflows/ci.yml`) runs `npm run lint`, `tsc --noEmit`, and
+`npm test` on every PR/push to `main`, and is a required status check — see
+"Deployment" below for what happens after a PR merges. There's still no
+DB-backed test infra, so DB-dependent changes additionally need a live
 `docker compose up` check (see gotchas below).
 
 ## Commit messages
@@ -22,6 +24,27 @@ the verification surface; DB-dependent changes additionally need a live
 Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`,
 `fix:`, `refactor:`, `test:`, `docs:`, `chore:`, optionally with a scope,
 e.g. `fix(lzqgame): ...`).
+
+## Deployment
+
+`main` is the staging trigger; `production` is the prod trigger (the
+frontend repo follows the same model). The pipeline:
+
+1. A PR into `main` must pass `ci.yml` before it can merge (branch
+   protection).
+2. Merging to `main` auto-deploys `luzhanqi-backend-staging` on Render (see
+   `render.yaml`).
+3. `.github/workflows/promote.yml`, triggered by that same push, polls
+   Render until that commit's staging deploy is `live`, then smoke-tests
+   `GET /health` (expects 200) and `GET /games/<a well-formed but
+   nonexistent id>` (expects 404, proving the Express↔Mongoose round-trip
+   works). Only on success does it fast-forward `production` to match.
+4. Render auto-deploys `luzhanqi-backend` (prod) from `production`.
+
+**Never push directly to `production`** — it only ever advances via step 3,
+and a manual push would be silently overwritten (or diverge and break the
+fast-forward) on the next promotion. `GET /health` (`src/app.ts`) is also
+wired up as both services' Render `healthCheckPath`.
 
 ## Layout
 
@@ -122,6 +145,8 @@ invalid* one is treated as an error, not silently downgraded to anonymous.
   (`src/app.ts`'s `LOCAL_MONGO_URI`, a leftover from another project) — if
   inspecting the dev DB directly via `mongosh`, the database is
   `<DB_NAME>streamhatchet`, not `<DB_NAME>`.
-- Deploys to Render (see `render.yaml`) on the free tier — expect cold
-  starts (~30-60s) after ~15 min of inactivity. Firebase Admin credentials
-  are set as Render environment variables, not committed to the repo.
+- Render's free tier cold-starts (~30-60s) after ~15 min of inactivity —
+  affects both `luzhanqi-backend` and `luzhanqi-backend-staging`. Firebase
+  Admin credentials (`FIREBASE_PRIVATE_KEY_B64` etc) are set as Render
+  environment variables, not committed to the repo. See "Deployment" above
+  for the staging→production promotion flow.
