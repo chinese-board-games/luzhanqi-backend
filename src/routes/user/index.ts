@@ -53,8 +53,7 @@ user.get('/:userId', async (req, res) => {
     }
 });
 user.post('/:userId/games/:gameId', async (req, res) => {
-    addGame(req.params.userId, req.params.gameId);
-    const myUser = await getUser(req.params.userId);
+    const myUser = await addGame(req.params.userId, req.params.gameId);
     if (myUser) {
         res.status(200).send(myUser);
         console.info('sending user');

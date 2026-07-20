@@ -57,17 +57,29 @@ games.get('/:gameId', optionalAuth, async (req, res) => {
     res.status(200).send(sanitizeGameForClient(view));
 });
 
-// links the calling player's own verified uid to their seat in a game
+// links the calling player's own verified uid to their seat in a game -
+// playerName must be a real, still-unclaimed (or already-theirs) seat, so
+// one account can't overwrite another's existing binding just by naming
+// their seat here
 games.post('/:gameId/:playerName', requireAuth, async (req, res) => {
     const { gameId, playerName } = req.params;
     const myGame = await getGameById(gameId);
-    if (myGame) {
-        myGame.playerToUidMap.set(playerName, req.uid as string);
-        myGame.save();
-        res.status(200).send(sanitizeGameForClient(myGame));
-    } else {
+    if (!myGame) {
         res.status(404).send('Game not found');
+        return;
     }
+    if (!myGame.players.includes(playerName)) {
+        res.status(404).send('No such seat in this game.');
+        return;
+    }
+    const existingUid = myGame.playerToUidMap.get(playerName);
+    if (existingUid && existingUid !== req.uid) {
+        res.status(403).send('This seat is already claimed by another account.');
+        return;
+    }
+    myGame.playerToUidMap.set(playerName, req.uid as string);
+    await myGame.save();
+    res.status(200).send(sanitizeGameForClient(myGame));
 });
 
 export default games;
