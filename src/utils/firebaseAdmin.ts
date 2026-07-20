@@ -17,20 +17,21 @@ function getAdminApp(): App {
     if (existing) {
         return existing;
     }
-    const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } =
+    const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY_B64 } =
         process.env;
-    if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+    if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY_B64) {
         throw new Error(
-            'Firebase Admin credentials are not configured (FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY)',
+            'Firebase Admin credentials are not configured (FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY_B64)',
         );
     }
     return initializeApp({
         credential: cert({
             projectId: FIREBASE_PROJECT_ID,
             clientEmail: FIREBASE_CLIENT_EMAIL,
-            // .env can't hold literal newlines, so the key is stored with
-            // escaped \n sequences that need to be restored here
-            privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            // stored base64-encoded so host dashboards (Render, etc.) can't
+            // mangle embedded newlines/quotes the way they can with a raw
+            // escaped-\n PEM string
+            privateKey: Buffer.from(FIREBASE_PRIVATE_KEY_B64, 'base64').toString('utf8'),
         }),
     });
 }

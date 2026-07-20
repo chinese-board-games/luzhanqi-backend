@@ -28,7 +28,7 @@ e.g. `fix(lzqgame): ...`).
 - `src/server.ts` — HTTP + socket.io bootstrap, CORS allowlist
 - `src/lzqgame.ts` — all socket.io event handlers (join/rejoin/move/setup/AI turns). Thin wrappers where possible; real logic lives in `services/`. Also owns the auth/ownership checks for socket events — see "Authentication & authorization" below
 - `src/middleware/auth.ts` — `requireAuth`/`optionalAuth` Express middleware verifying a Firebase ID token from the `Authorization: Bearer <token>` header (sets `req.uid`)
-- `src/utils/firebaseAdmin.ts` — `verifyIdToken`; lazily initializes the Firebase Admin SDK from `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY` env vars
+- `src/utils/firebaseAdmin.ts` — `verifyIdToken`; lazily initializes the Firebase Admin SDK from `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY_B64` env vars
 - `src/services/gameplayService.ts` — socket-free move/setup application (`applyMove`, `submitInitialBoard`, `pieceMovement`, `broadcastGameState`) — reused by both real player handlers and the AI's own turns. Prefer adding new gameplay logic here over `lzqgame.ts` so it stays testable without a socket
 - `src/controllers/` — Mongoose DB access (`gameController.ts`, `userController.ts`)
 - `src/models/Game.ts` — the `Game` schema (board, players, turn/phase, reconnection tokens, join code, rule-variant config, AI config)
@@ -65,8 +65,8 @@ invalid* one is treated as an error, not silently downgraded to anonymous.
   reconnection token — losing it (e.g. a server restart) doesn't affect
   reconnection, only same-session seat spoofing.
 - Local dev without `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/
-  `FIREBASE_PRIVATE_KEY` set works fine for anonymous flows (no token ever
-  reaches `verifyIdToken`) but throws the moment a real token needs
+  `FIREBASE_PRIVATE_KEY_B64` set works fine for anonymous flows (no token
+  ever reaches `verifyIdToken`) but throws the moment a real token needs
   verifying.
 
 ## Known gotchas
