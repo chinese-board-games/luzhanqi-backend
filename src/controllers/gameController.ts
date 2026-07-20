@@ -468,8 +468,10 @@ export const updateGame = async (
 /**
  * Pure win-check for the captureTheFlag rule variant, extracted from
  * winner() so it's testable without a database. A carrier wins by reaching
- * its own home HQ row; a flag destroyed outright (e.g. by a bomb) with no
- * one carrying it falls back to an instant loss for its owner.
+ * its own home HQ row; a flag destroyed outright with no one carrying it
+ * (not reachable in normal play - a bomb attacking the flag only destroys
+ * itself, see pieceMovement - but kept as a defensive fallback) falls back
+ * to an instant loss for its owner.
  * @see winnerUnderCaptureTheFlag
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -502,9 +504,9 @@ export function winnerUnderCaptureTheFlag(myBoard: any): number {
         return winnerIndex;
     }
 
-    // a flag can still be destroyed outright (e.g. by a bomb) without ever
-    // being carried - if so, fall back to the simple-capture rule (missing
-    // flag with no one carrying it is an instant loss for its owner)
+    // defensive fallback: if a flag were ever destroyed outright without
+    // being carried, treat it as an instant loss for its owner, same as
+    // the simple-capture rule
     for (let affiliation = 0; affiliation < 2; affiliation += 1) {
         if (flagsPresent[affiliation]) {
             // eslint-disable-next-line no-continue
