@@ -568,11 +568,14 @@ async function playerLeaveRoom(
         // remove the game
         const myDeletedGame = await deleteGame(data.leaveRoomId);
         if (myDeletedGame) {
-            myDeletedGame.players.forEach(async (player) => {
-                const eachUid = myDeletedGame.playerToUidMap.get(player);
-                eachUid &&
-                    (await removeGame(eachUid, myDeletedGame._id.toString()));
-            });
+            await Promise.all(
+                myDeletedGame.players.map((player) => {
+                    const eachUid = myDeletedGame.playerToUidMap.get(player);
+                    return eachUid
+                        ? removeGame(eachUid, myDeletedGame._id.toString())
+                        : undefined;
+                }),
+            );
             io.sockets
                 .in(data.leaveRoomId)
                 .emit('youHaveLeftTheRoom', { ...data, players: [] });
