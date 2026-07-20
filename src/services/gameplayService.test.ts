@@ -320,6 +320,47 @@ describe('pieceMovement', () => {
             });
             expect(newBoard[0][1]?.carryingFlag).toBeUndefined();
         });
+
+        test('a bomb attacking the flag destroys only the bomb - the flag survives uncaptured', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 1, 1, createPiece('bomb', 0));
+            board = placePiece(board, 0, 1, createPiece('flag', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [1, 1],
+                [0, 1],
+                {
+                    captureTheFlag: true,
+                },
+            );
+
+            expect(deadPieces).toEqual([
+                expect.objectContaining({ name: 'bomb', affiliation: 0 }),
+            ]);
+            expect(newBoard[1][1]).toBeNull();
+            expect(newBoard[0][1]).toMatchObject({
+                name: 'flag',
+                affiliation: 1,
+            });
+            expect(newBoard[0][1]?.carryingFlag).toBeUndefined();
+        });
+
+        test('without captureTheFlag, a bomb attacking the flag still destroys both (default behavior unchanged)', () => {
+            let board = emptyBoard();
+            board = placePiece(board, 1, 1, createPiece('bomb', 0));
+            board = placePiece(board, 0, 1, createPiece('flag', 1));
+
+            const { board: newBoard, deadPieces } = pieceMovement(
+                board,
+                [1, 1],
+                [0, 1],
+            );
+
+            expect(deadPieces).toHaveLength(2);
+            expect(newBoard[1][1]).toBeNull();
+            expect(newBoard[0][1]).toBeNull();
+        });
     });
 
     test('an out-of-range coordinate is a no-op, not a thrown error', () => {

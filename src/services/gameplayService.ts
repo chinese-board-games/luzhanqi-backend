@@ -131,6 +131,19 @@ export function pieceMovement(
             board[source[0]][source[1]] = null;
         }
     } else if (
+        config.captureTheFlag &&
+        targetPiece &&
+        targetPiece.name === 'flag' &&
+        sourcePiece.name === 'bomb'
+    ) {
+        // under captureTheFlag, the flag is an objective to be carried
+        // home, not something any attacker can simply blow up - unlike
+        // every other matchup, a bomb hitting the flag only destroys
+        // itself, leaving the flag in place for a later piece to actually
+        // capture (and carry)
+        deadPieces.push(sourcePiece);
+        board[source[0]][source[1]] = null;
+    } else if (
         targetPiece &&
         (sourcePiece.name === 'bomb' ||
             sourcePiece.name === targetPiece.name ||
@@ -167,9 +180,11 @@ export function pieceMovement(
     // instead, rather than ending the game or disappearing forever. The
     // source tile of this move is always empty afterward whenever a piece
     // died (every combat branch above vacates it), so it's always a valid
-    // last-resort drop spot. This guarantees the flag can only ever
-    // disappear from the board outright (ending the game per winner()'s
-    // fallback) by being destroyed before anyone has captured it.
+    // last-resort drop spot. Since a bomb attacking the flag now only
+    // destroys itself (see above), the flag can no longer be destroyed
+    // outright before ever being captured under this variant -
+    // winnerUnderCaptureTheFlag's fallback for that case is purely
+    // defensive at this point.
     if (config.captureTheFlag) {
         deadPieces
             .filter((piece) => piece.carryingFlag)
