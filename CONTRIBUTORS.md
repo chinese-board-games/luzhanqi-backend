@@ -13,11 +13,26 @@
 4. Merge (this repo uses merge commits, not squash/rebase, so `git log`
    keeps a per-PR merge commit).
 
-That's it from a contributor's side — everything after merge is automatic.
-See `AGENTS.md`'s "Deployment" section for what happens next (staging
-deploy → automated smoke test → promotion to production), and never push
-directly to the `production` branch, which only the promotion workflow
-should touch.
+That's it from a contributor's side — everything after merge is automatic:
+
+```mermaid
+flowchart TD
+    A[PR opened against main] --> B{ci.yml\nlint + typecheck + test}
+    B -- fail --> A
+    B -- pass, merged --> C[main updated]
+    C --> D[Render auto-deploys\nluzhanqi-backend-staging]
+    D --> E{promote.yml\npoll staging deploy, then smoke test}
+    E -- fail --> F[Stops here\nproduction untouched]
+    E -- pass --> G[Fast-forward production\nto match main]
+    G --> H[Render auto-deploys\nluzhanqi-backend prod]
+```
+
+`main` is the staging trigger, `production` is the prod trigger — never
+push directly to `production`, since only `promote.yml`'s fast-forward
+should ever move it. The smoke test hits `GET /health` (expects 200) and
+`GET /games/<a well-formed but nonexistent id>` (expects 404, proving the
+Express↔Mongoose round-trip works) against staging before promoting; if
+either fails, prod simply stays on its last good commit.
 
 ## Local development
 
@@ -33,6 +48,24 @@ should touch.
 
 ## Getting oriented
 
-Start with `AGENTS.md` — it covers the codebase layout, the
-authentication/authorization model, and known gotchas worth reading before
-touching game logic, auth, or rule variants.
+- `src/server.ts` — HTTP + socket.io bootstrap, CORS allowlist.
+- `src/lzqgame.ts` — all socket.io event handlers (join/rejoin/move/setup/
+  AI turns); also owns the auth/ownership checks for socket events.
+- `src/services/gameplayService.ts` — socket-free move/setup application
+  (`applyMove`, `submitInitialBoard`, `pieceMovement`) reused by both real
+  players and the AI's own turns. Prefer adding new gameplay logic here
+  over `lzqgame.ts` so it stays testable without a socket.
+- `src/controllers/` — Mongoose DB access (`gameController.ts`,
+  `userController.ts`).
+- `src/utils/` — pure, socket/DB-free functions: board/piece primitives,
+  move generation (`getSuccessors.ts`), setup validation, fog-of-war
+  redaction, the AI opponent.
+- The client sends a Firebase ID token (never a raw uid) wherever caller
+  identity matters; the server verifies it before trusting anything.
+  Anonymous play is allowed — a missing token is fine, a *present but
+  invalid* one is treated as an error, never silently downgraded to
+  anonymous.
+- A rule-variant change must stay in sync across `pieceMovement`/
+  `getSuccessors.ts` (server truth), `aiPlayer.ts` (so the AI doesn't
+  misjudge outcomes under a variant it doesn't know about), and the
+  frontend's `predictOutcome.js`/`getSuccessors.js` mirrors.

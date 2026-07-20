@@ -45,5 +45,5 @@ anonymous play works fine but any request carrying a real auth token fails.
 
 Merging a PR into `main` deploys to staging, then a GitHub Actions workflow
 smoke-tests it and — if it passes — promotes it to production
-automatically. See `AGENTS.md`'s "Deployment" section for the full flow,
-and `CONTRIBUTORS.md` for the contribution workflow.
+automatically. See `CONTRIBUTORS.md` for the full flow (including a
+diagram) and the contribution workflow.
