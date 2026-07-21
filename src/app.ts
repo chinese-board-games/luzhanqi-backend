@@ -4,6 +4,7 @@ import logger from 'morgan';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import user from './routes/user';
 import game from './routes/games';
 import cors from 'cors';
@@ -40,7 +41,17 @@ app.get('/health', (_req, res) => {
     });
 });
 
-app.use('/user', user);
-app.use('/games', game);
+// gameplay itself goes over socket.io (lzqgame.ts), not these REST routes -
+// they're only hit for account/history operations, so a generous per-IP
+// window is plenty to stop abuse without affecting real usage
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.use('/user', apiLimiter, user);
+app.use('/games', apiLimiter, game);
 
 export default app;
