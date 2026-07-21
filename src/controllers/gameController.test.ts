@@ -174,7 +174,8 @@ describe('winner (default, non-captureTheFlag rules)', () => {
     // filler pieces in the rows ahead of each flag so a scan actually
     // encounters other pieces first, the same as a real, mostly-full
     // game board would.
-    const asPreloadedGame = (board: unknown) => ({ board, config: {} } as any);
+    const asPreloadedGame = (board: unknown, extra: Record<string, unknown> = {}) =>
+        ({ board, config: {}, ...extra } as any);
 
     test('no winner while both flags are present, several rows deep in their own half', async () => {
         let board = emptyBoard();
@@ -204,5 +205,48 @@ describe('winner (default, non-captureTheFlag rules)', () => {
         board = placePiece(board, 7, 0, createPiece('captain', 0));
 
         expect(await winner('unused', asPreloadedGame(board))).toBe(1);
+    });
+
+    // regression coverage for chinese-board-games/luzhanqi-backend#111: a
+    // player down to only immobile pieces (or otherwise boxed in) on their
+    // own turn was never declared the loser - the game just stalled,
+    // forcing a manual forfeit. runAiTurn already special-cased this for
+    // the AI; these confirm winner() now catches it generically, for both
+    // human players and the AI.
+    test('the guest loses on their own turn once only immobile pieces remain, even with both flags present', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 8, 1, createPiece('flag', 0));
+        board = placePiece(board, 7, 0, createPiece('captain', 0));
+        board = placePiece(board, 3, 3, createPiece('flag', 1));
+        board = placePiece(board, 2, 1, createPiece('landmine', 1));
+
+        // turn 1 -> turn % 2 === 1 -> it's the guest's (affiliation 1) turn
+        expect(await winner('unused', asPreloadedGame(board, { turn: 1 }))).toBe(0);
+    });
+
+    test('is not decided by stalemate when it is the other player\'s turn', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 8, 1, createPiece('flag', 0));
+        board = placePiece(board, 7, 0, createPiece('captain', 0));
+        board = placePiece(board, 3, 3, createPiece('flag', 1));
+        board = placePiece(board, 2, 1, createPiece('landmine', 1));
+
+        // turn 0 -> it's the host's turn, and the host (who still has a
+        // mobile captain) is not the one who's stuck
+        expect(await winner('unused', asPreloadedGame(board, { turn: 0 }))).toBe(-1);
+    });
+
+    test('stalemate applies under the captureTheFlag variant too', async () => {
+        let board = emptyBoard();
+        board = placePiece(board, 8, 1, createPiece('flag', 0));
+        board = placePiece(board, 7, 0, createPiece('captain', 0));
+        board = placePiece(board, 3, 3, createPiece('flag', 1));
+        board = placePiece(board, 2, 1, createPiece('landmine', 1));
+
+        const game = asPreloadedGame(board, {
+            turn: 1,
+            config: { captureTheFlag: true },
+        });
+        expect(await winner('unused', game)).toBe(0);
     });
 });

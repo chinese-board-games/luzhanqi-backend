@@ -959,9 +959,12 @@ async function runAiTurn(gid: string, turn: number) {
     );
 
     if (!move) {
-        // AI has no legal moves - treat it as a forfeit (a pre-existing gap
-        // in winner() means human-vs-human stalemates aren't handled either,
-        // this just makes the case reachable and resolves it the same way)
+        // Belt-and-suspenders: winner()'s own stalemate check (see
+        // gameController.winnerByStalemate) already ends the game the
+        // moment the preceding move leaves the AI with no legal moves, so
+        // scheduleAiTurn - and therefore this branch - shouldn't normally
+        // fire at all. Kept as a defensive fallback in case that check and
+        // chooseAiMove's own legal-move search ever disagree.
         const winnerIndex = aiPlayerIndex === 0 ? 1 : 0;
         const gameStats = await getGameStats(gid);
         await updateGame(gid, {
