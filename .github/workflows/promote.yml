@@ -9,6 +9,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 env:
   STAGING_SERVICE_ID: srv-d9akgnlaeets73boftdg
   STAGING_URL: https://luzhanqi-backend-staging.onrender.com
