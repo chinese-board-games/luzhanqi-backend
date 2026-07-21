@@ -293,6 +293,33 @@ export function getSuccessors(
     return allMoves;
 }
 
+/**
+ * Whether the given affiliation has at least one legal move available on
+ * the current board - i.e. some non-landmine, non-flag piece of theirs has
+ * a non-empty getSuccessors() result. A player with none (all remaining
+ * pieces immobile, or fully boxed in) has no move to make on their turn,
+ * which should end the game rather than stall it waiting for a manual
+ * forfeit.
+ * @see getSuccessors
+ */
+export function hasLegalMoves(
+    board: Board,
+    affiliation: number,
+    config: { flyingBombs?: boolean } = {},
+): boolean {
+    for (let r = 0; r < board.length; r += 1) {
+        for (let c = 0; c < board[r].length; c += 1) {
+            if (board[r][c]?.affiliation !== affiliation) {
+                continue;
+            }
+            if (getSuccessors(board, r, c, affiliation, config).length > 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 export function isBlockedPath(origin: number[], destination: number[]) {
     const blockedPaths = [
         { origin: [5, 1], destination: [6, 1] },

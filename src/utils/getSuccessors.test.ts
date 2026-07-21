@@ -7,6 +7,7 @@ import {
     _getEngineerRailroadMoves,
     _getNormalRailroadMoves,
     isBlockedPath,
+    hasLegalMoves,
 } from './getSuccessors';
 
 import { createPiece, placePiece } from './piece';
@@ -368,5 +369,54 @@ describe('getSuccessors', () => {
             );
             expect(withFlyingBombs).toEqual(without);
         });
+    });
+});
+
+describe('hasLegalMoves', () => {
+    let board = emptyBoard();
+
+    beforeEach(() => {
+        board = emptyBoard();
+    });
+
+    test('true when a piece has an open square to move to', () => {
+        board = placePiece(board, 6, 0, createPiece('captain', 0));
+        expect(hasLegalMoves(board, 0)).toBe(true);
+    });
+
+    test('false when the affiliation only has immobile pieces left (flag/landmines)', () => {
+        board = placePiece(board, 11, 1, createPiece('flag', 0));
+        board = placePiece(board, 10, 1, createPiece('landmine', 0));
+        board = placePiece(board, 10, 3, createPiece('landmine', 0));
+        // the opponent still has real pieces, which must not affect this check
+        board = placePiece(board, 0, 0, createPiece('captain', 1));
+
+        expect(hasLegalMoves(board, 0)).toBe(false);
+        expect(hasLegalMoves(board, 1)).toBe(true);
+    });
+
+    test('false when a lone mobile piece is fully boxed in by its own (immobile) pieces', () => {
+        // [0, 0] is a corner tile - neither a camp (no diagonals) nor a
+        // railroad - so its only adjacency is [1, 0] and [0, 1]. Both are
+        // occupied here by friendly landmines, which block the captain
+        // (can't move onto your own piece) while contributing no moves of
+        // their own (landmines never move) - so the whole affiliation is
+        // stuck, not just the captain.
+        board = placePiece(board, 0, 0, createPiece('captain', 0));
+        board = placePiece(board, 1, 0, createPiece('landmine', 0));
+        board = placePiece(board, 0, 1, createPiece('landmine', 0));
+
+        expect(getSuccessors(board, 0, 0, 0)).toEqual([]);
+        expect(hasLegalMoves(board, 0)).toBe(false);
+    });
+
+    test('attacking an enemy piece still counts as a legal move', () => {
+        // same box as above, but the blockers are enemy pieces instead of
+        // friendly ones - moving onto them is a legal attack
+        board = placePiece(board, 0, 0, createPiece('captain', 0));
+        board = placePiece(board, 1, 0, createPiece('lieutenant', 1));
+        board = placePiece(board, 0, 1, createPiece('lieutenant', 1));
+
+        expect(hasLegalMoves(board, 0)).toBe(true);
     });
 });

@@ -5,6 +5,7 @@ import {
     AI_SOCKET_SENTINEL,
     DEFAULT_AI_WEIGHTS,
 } from '../utils/aiConstants';
+import { hasLegalMoves } from '../utils/getSuccessors';
 
 /**
  * generates an opaque random token used to prove ownership of a player's
@@ -527,6 +528,17 @@ export function winnerUnderCaptureTheFlag(myBoard: any): number {
     return -1;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const winnerByStalemate = (myBoard: any, myGame: PreloadedGame): number => {
+    // whoever's turn is next - the same player runAiTurn checks before an
+    // AI move; this covers the human-vs-human case that gap left open
+    const toMove = (myGame?.turn ?? 0) % 2;
+    if (hasLegalMoves(myBoard, toMove, { flyingBombs: myGame?.config?.flyingBombs })) {
+        return -1;
+    }
+    return 1 - toMove;
+};
+
 export const winner = async (gid: string, preloadedGame?: PreloadedGame) => {
     const myGame = preloadedGame ?? (await getGameById(gid));
     if (!myGame) {
@@ -535,7 +547,10 @@ export const winner = async (gid: string, preloadedGame?: PreloadedGame) => {
     const myBoard = (await myGame.board) as any;
 
     if (myGame.config?.captureTheFlag) {
-        return winnerUnderCaptureTheFlag(myBoard);
+        const captureTheFlagWinner = winnerUnderCaptureTheFlag(myBoard);
+        return captureTheFlagWinner !== -1
+            ? captureTheFlagWinner
+            : winnerByStalemate(myBoard, myGame);
     }
 
     // a flag can legally sit on any row of its owner's half, so this counts
@@ -558,5 +573,5 @@ export const winner = async (gid: string, preloadedGame?: PreloadedGame) => {
         console.info('bottom half loses');
         return 1;
     }
-    return -1;
+    return winnerByStalemate(myBoard, myGame);
 };
