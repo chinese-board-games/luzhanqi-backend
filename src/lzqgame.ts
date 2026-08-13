@@ -48,6 +48,25 @@ const socketSeatRegistry = new Map<string, { gid: string; playerName: string }>(
 export const formatGameStats = (gameStats: GameStats | null) =>
     inspect(gameStats, { depth: null });
 
+/**
+ * Builds the payload every game-ending broadcast carries. finalGame is the
+ * unfogged board the client reveals once the game is over (see GameContext's
+ * endGame handler, which only reveals when finalGame is present), so every
+ * ending is constructed here rather than inline - a new way for a game to end
+ * gets the reveal by construction instead of by remembering.
+ * @see buildEndGamePayload
+ */
+export const buildEndGamePayload = (
+    winnerIndex: number,
+    gameStats: GameStats | null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    game: any,
+) => ({
+    winnerIndex,
+    gameStats,
+    finalGame: sanitizeGameForClient(game),
+});
+
 export const initGame = (sio: Server, socket: Socket) => {
     io = sio;
     gameSocket = socket;
@@ -892,11 +911,12 @@ async function playerMakeMove(
 
     if (result.winnerIndex !== -1) {
         console.info('game ended from victory', formatGameStats(result.gameStats));
-        io.sockets.in(gid).emit('endGame', {
-            winnerIndex: result.winnerIndex,
-            gameStats: result.gameStats,
-            finalGame: sanitizeGameForClient(result.game),
-        });
+        io.sockets
+            .in(gid)
+            .emit(
+                'endGame',
+                buildEndGamePayload(result.winnerIndex, result.gameStats, result.game),
+            );
         return;
     }
 
@@ -973,7 +993,9 @@ async function runAiTurn(gid: string, turn: number) {
                 'anonymous',
             phase: 3,
         });
-        io.sockets.in(gid).emit('endGame', { winnerIndex, gameStats });
+        io.sockets
+            .in(gid)
+            .emit('endGame', buildEndGamePayload(winnerIndex, gameStats, myGame));
         return;
     }
 
@@ -990,11 +1012,12 @@ async function runAiTurn(gid: string, turn: number) {
     broadcastFieldMarshallDown(gid, result.fieldMarshallDown);
     if (result.winnerIndex !== -1) {
         console.info('game ended from victory (AI)', formatGameStats(result.gameStats));
-        io.sockets.in(gid).emit('endGame', {
-            winnerIndex: result.winnerIndex,
-            gameStats: result.gameStats,
-            finalGame: sanitizeGameForClient(result.game),
-        });
+        io.sockets
+            .in(gid)
+            .emit(
+                'endGame',
+                buildEndGamePayload(result.winnerIndex, result.gameStats, result.game),
+            );
     }
 }
 
@@ -1022,16 +1045,11 @@ async function playerForfeit(
 
     const gameStats = await getGameStats(gid);
     console.info('game ended due to forfeit');
-    // unfogged, same as the other endGame emits - the client relies on
-    // finalGame to reveal the board once the game is over (see
-    // GameContext.jsx's endGame handler); the board itself is unaffected by
-    // a forfeit, so myGame (fetched before the phase update above) is still
-    // accurate
-    io.sockets.in(gid).emit('endGame', {
-        winnerIndex,
-        gameStats,
-        finalGame: sanitizeGameForClient(myGame),
-    });
+    // a forfeit leaves the board itself untouched, so myGame - fetched before
+    // the phase update above - is still an accurate final board
+    io.sockets
+        .in(gid)
+        .emit('endGame', buildEndGamePayload(winnerIndex, gameStats, myGame));
 }
 
 /**
